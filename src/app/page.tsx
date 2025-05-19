@@ -44,7 +44,7 @@ export default function LandingPage() {
       {/* Features Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-16">Why you'll love our app</h2>
+          <h2 className="text-3xl font-bold text-center mb-16">Why you'll love this app</h2>
 
           <div className="grid md:grid-cols-3 gap-10">
             <div className="text-center p-6">
