@@ -27,11 +27,12 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="md:w-1/2">
-              <div className="relative h-[400px] w-full">
+              <div className="relative h-[400px] w-full" style={{ minHeight: "400px" }}>
                 <Image
-                  src="/Users/benbentlin/family-photo-share/public/familylogo.png"
+                  src="/familylogo.png"
                   alt="Family photo collage"
                   fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   className="object-cover rounded-lg shadow-xl"
                   priority 
                 />
@@ -64,7 +65,7 @@ export default function LandingPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold mb-2">Easy Sharing</h3>
-              <p className="tex-gray-600">Upload photos from any device and share them instantly with our family.</p>
+              <p className="text-gray-600">Upload photos from any device and share them instantly with our family.</p>
             </div>
 
             <div className="text-center p-6">
