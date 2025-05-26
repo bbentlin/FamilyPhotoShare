@@ -10,7 +10,8 @@ import {
   updateProfile,
   sendPasswordResetEmail
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 interface AuthContextProps {
   user: User | null;
@@ -43,6 +44,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (userCredential.user) {
         await updateProfile(userCredential.user, {
           displayName: name
+        });
+
+        // Create user document in Firestore
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          displayName: name,
+          email: email,
+          emailNotifications: true,
+          newUploadsNotification: true,
+          commentsNotification: true,
+          createdAt: new Date().toISOString()
         });
       }
     } catch (error) {

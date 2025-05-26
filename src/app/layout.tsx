@@ -1,13 +1,13 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/context/AuthContext';
-import Navbar from '@/components/Navbar';
+import ConditionalNavbar from '@/components/ConditionalNavbar';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'Family Photo Share',
-  description: 'One location for all of our precious moments',
+  description: 'Share your precious family moments with loved ones',
 };
 
 export default function RootLayout({
@@ -19,7 +19,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <Navbar />
+          <ConditionalNavbar />
           <main>
             {children}
           </main>

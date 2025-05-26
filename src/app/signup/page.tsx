@@ -39,7 +39,7 @@ export default function SignupPage() {
       if (err.code === "auth/email-already-in-use") {
         setError("Email is already in use. Please use a different email.");
       } else {
-        setError(err.message || "Failed to create account. Pleas try again.");
+        setError(err.message || "Failed to create account. Please try again.");
       }
     } finally {
       setIsLoading(false);
@@ -63,7 +63,7 @@ export default function SignupPage() {
             <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
               <div className="flex">
                 <div className="ml-3">
-                  <p className="text-sm text-red-700">(error)</p>
+                  <p className="text-sm text-red-700">{error}</p>
                 </div>
               </div>
             </div>

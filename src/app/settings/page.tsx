@@ -10,7 +10,7 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-} from "@firebase/auth";
+} from "firebase/auth";
 import { db } from "@/lib/firebase";
 
 export default function SettingsPage() {
