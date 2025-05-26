@@ -185,10 +185,75 @@ export default function NewAlbumPage() {
             </div>
 
             {/* Album Preview */}
-            
+            <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+              <h3 className="text-sm font-medium text-gray-900 mb-4">Album Preview</h3>
+
+              <div className="flex items-center p-4 bg-white rounded-lg border border-gray-200">
+                <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center mr-4">
+                  <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900">
+                    {albumData.title || "Your Album Title"}
+                  </h4>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {albumData.description || "Album description will appear here"}
+                  </p>
+                  <div className="flex items-center mt-2 text-xs text-gray-400">
+                    <span>0 photos</span>
+                    <span className="mx-2">•</span>
+                    <span>{albumData.isPublic ? "Public" : "Private"}</span>
+                    <span className="mx-2">•</span>
+                    <span>Created by {user?.displayName || user?.email}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between pt-6">
+              <Link
+                href={"/dashboard"}
+                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                  Cancel
+              </Link>
+
+              <button
+                type="submit"
+                disabled={isCreating || !albumData.title.trim()}
+                className={`px-8 py-3 rounded-lg font-medium transition-colors ${
+                  isCreating || !albumData.title.trim()
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {isCreating ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating...
+                  </div>
+                ) : (
+                  "Create Album"
+                )}
+              </button>
+            </div>
           </form>
+        </div>
+
+        {/* Next Steps Info */}
+        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <h3 className="text-sm font-medium text-blue-900 mb-2">What happens next?</h3>
+          <ul className="text-sm text-blue-800 space-y-1">
+            <li>• Your album will be created and you'll be taken to the album page</li>
+            <li>• You can add photos by uploading them or selecting them from existing photos</li>
+            <li>• You can share the album with family members</li>
+            <li>• You can edit the album details anytime</li>
+          </ul>
         </div>
       </main>
     </div>
-  )
+  );
 }

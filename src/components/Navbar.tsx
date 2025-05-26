@@ -165,7 +165,7 @@ export default function Navbar() {
           <div className="flex items-center sm:hidden">
             <button
               type="button"
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:text-gray-100"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500"
               aria-expanded="false"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >

@@ -7,8 +7,10 @@ export default function ConditionalNavbar() {
   const pathname = usePathname();
   const isDashboard = pathname.startsWith("/dashboard");
   const isUpload = pathname?.startsWith("/upload");
+  const isAlbums = pathname?.startsWith("/albums");
+  const isPhotos = pathname?.startsWith("/photos");
 
-  if (isDashboard || isUpload) {
+  if (isDashboard || isUpload || isAlbums || isPhotos) {
     return null;
   }
 
