@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, addDoc, serverTimestamp } from "@firebase/firestore";
+import { collection, getDocs, query, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
 import Image from "next/image";
 import Link from "next/link";
@@ -24,6 +24,32 @@ export default function UploadPage() {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [albumTitle, setAlbumTitle] = useState("");
   const [error, setError] = useState("");
+  const [albums, setAlbums] = useState<Array<{ id: string; [key: string]: any }>>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<string>("");
+
+  // Fetch albums
+  useEffect(() => {
+    async function fetchAlbums() {
+      if (user) {
+        try {
+          const albumsQuery = query(
+            collection(db, "albums"),
+            orderBy("updatedAt", "desc")
+          );
+          const albumSnapshot = await getDocs(albumsQuery);
+          const albumsData = albumSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setAlbums(albumsData);
+        } catch (error) {
+          console.error("Error fetching albums:", error);
+        }
+      }
+    }
+
+    fetchAlbums();
+  }, [user]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -72,6 +98,7 @@ export default function UploadPage() {
 
     try {
       const uploadedPhotos = [];
+      const albumArray = selectedAlbum ? [selectedAlbum] : [];
 
       // Upload each file
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -97,6 +124,7 @@ export default function UploadPage() {
           uploadedBy: user.uid,
           uploadedByName: user.displayName || user.email,
           createdAt: serverTimestamp(),
+          albums: albumArray,
           albumId: null, // I'll implement albums later
           sharedWith: [], // Array of user IDs who can view this photo
           tags: [],
@@ -299,6 +327,29 @@ export default function UploadPage() {
               </div>
             </div>
           )}
+
+          {/* Album Selection */}
+          <div>
+            <label htmlFor="album" className="block text-sm font-medium text-gray-700 mb-2">
+              Add to Album (Optional)
+            </label>
+            <select
+              id="album"
+              value={selectedAlbum}
+              onChange={(e) => setSelectedAlbum(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">No Album</option>
+              {albums.map((album) => (
+                <option key={album.id} value={album.id}>
+                  {album.title}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              You can also add photos to albums later
+            </p>
+          </div>
 
           {/* Upload Button */}
           {selectedFiles.length > 0 && (

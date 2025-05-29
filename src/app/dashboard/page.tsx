@@ -23,9 +23,10 @@ import {
   useSortable
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import AddToAlbumModal from "@/components/AddToAlbumModal";
 
 // Sortable Photo Component
-function SortablePhoto({ photo, onClick }: { photo: any; onClick: () => void }) {
+function SortablePhoto({ photo, onClick, onAddToAlbum }: { photo: any; onClick: () => void; onAddToAlbum?: () => void; }) {
   const {
     attributes,
     listeners,
@@ -88,6 +89,24 @@ function SortablePhoto({ photo, onClick }: { photo: any; onClick: () => void }) 
         </p>
       </div>
 
+      {/* Add to album button - show on hover */}
+      {onAddToAlbum && (
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToAlbum();
+            }} 
+            className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
+            title="Add to Album"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Separate drag handle - only this area is draggable */}
       <div
         {...attributes}
@@ -106,13 +125,14 @@ function SortablePhoto({ photo, onClick }: { photo: any; onClick: () => void }) 
 }
 
 // Photo Modal Component
-function PhotoModal({ photo, onClose, onPrevious, onNext, hasPrevious, hasNext }: {
+function PhotoModal({ photo, onClose, onPrevious, onNext, hasPrevious, hasNext, onAddToAlbum }: {
   photo: any;
   onClose: () => void;
-  onPrevious: ()=> void;
+  onPrevious: () => void;
   onNext: () => void;
   hasPrevious: boolean;
   hasNext: boolean;
+  onAddToAlbum?: () => void;
 }) {
   // Close modal on escape key
   useEffect(() => {
@@ -162,6 +182,16 @@ function PhotoModal({ photo, onClose, onPrevious, onNext, hasPrevious, hasNext }
         </button>
       )}
 
+      {/* Add to Album button */}
+      {onAddToAlbum && (
+        <button
+          onClick={onAddToAlbum}
+          className="absolute top-4 left-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm transition-colors z-10"
+        >
+          Add to Album
+        </button>
+      )}
+
       {/* Photo */}
       <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
         <img
@@ -202,6 +232,10 @@ export default function Dashboard() {
   // Modal state
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+
+  // Add these state variables after your existing state declarations
+  const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<any>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -314,6 +348,22 @@ export default function Dashboard() {
       setSelectedPhotoIndex(newIndex);
       setSelectedPhoto(recentPhotos[newIndex]);
     }
+  };
+
+  // Add these functions after your existing photo modal functions
+  const openAddToAlbumModal = (photo: any) => {
+    setSelectedPhotoForAlbum(photo);
+    setShowAddToAlbumModal(true);
+  };
+
+  const closeAddToAlbumModal = () => {
+    setShowAddToAlbumModal(false);
+    setSelectedPhotoForAlbum(null);
+  };
+
+  const handleAlbumSuccess = () => {
+    // Optionally refresh the photos data
+    closeAddToAlbumModal();
   };
 
   if (loading || isLoading) {
@@ -545,6 +595,7 @@ export default function Dashboard() {
                           key={photo.id}
                           photo={photo}
                           onClick={() => openPhotoModal(photo, index)}
+                          onAddToAlbum = {() => openAddToAlbumModal(photo)}
                         />
                       ))}
                     </div>
@@ -722,6 +773,17 @@ export default function Dashboard() {
           onNext={goToNextPhoto}
           hasPrevious={selectedPhotoIndex > 0}
           hasNext={selectedPhotoIndex < recentPhotos.length - 1} 
+          onAddToAlbum={() => openAddToAlbumModal(selectedPhoto)}
+        />
+      )}
+
+      {/* Add to Album Modal */}
+      {showAddToAlbumModal && selectedPhotoForAlbum && (
+        <AddToAlbumModal
+          photo={selectedPhotoForAlbum}
+          isOpen={showAddToAlbumModal}
+          onClose={closeAddToAlbumModal}
+          onSuccess={handleAlbumSuccess}
         />
       )}
     </div>

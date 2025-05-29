@@ -23,173 +23,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-
-// Reuse the same components from dashboard 
-function SortablePhoto({ photo, onClick }: { photo: any; onClick: () => void }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: photo.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
-    >
-      {photo.url ? (
-        <img
-          src={photo.url}
-          alt={photo.title || "Photo"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log("Photo clicked:", photo.title);
-            onClick();
-          }} 
-        />
-      ) : (
-        <div
-          className="w-full h-full bg-gray-200 flex items-center justify-center cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-        >
-          <svg
-            className="h-8 w-8 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
-            />
-          </svg>
-        </div>
-      )}
-
-      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-
-      <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
-        <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
-          {photo.title || "Untitled Photo"}
-        </p>
-      </div>
-
-      {/* Separate drag handle - only this area is draggable */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
-        title="Drag to reorder"
-      >
-        <div className="bg-black bg-opacity-70 rounded-md p-2 hover:bg-opacity-90 transition-all">
-          <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>   
-      </div>
-    </div>
-  );
-}
-
-// Photo Modal Component
-function PhotoModal({ photo, onClose, onPrevious, onNext, hasPrevious, hasNext }: {
-  photo: any;
-  onClose: () => void;
-  onPrevious: ()=> void;
-  onNext: () => void;
-  hasPrevious: boolean;
-  hasNext: boolean;
-}) {
-  // Close modal on escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft" && hasPrevious) onPrevious();
-      if (e.key === "ArrowRight" && hasNext) onNext();
-    };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose, onPrevious, onNext, hasPrevious, hasNext]);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-      >
-        <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-
-      {/* Previous button */}
-      {hasPrevious && (
-        <button
-          onClick={onPrevious}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-        >
-          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-      )}
-
-      {/* Next button */}
-      {hasNext && (
-        <button
-          onClick={onNext}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-        >
-          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      )}
-
-      {/* Photo */}
-      <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
-        <img
-          src={photo.url}
-          alt={photo.title || "Photo"}
-          className="max-w-full max-h-[80vh] object-contain rounded-lg"  
-        />
-
-        {/* Photo info */}
-        <div className="text-center mt-4">
-          <h3 className="text-white text-lg font-semibold">{photo.title || "Untitled Photo"}</h3>
-          {photo.description && (
-            <p className="text-gray-300 text-sm mt-2">{photo.description}</p>
-          )}
-          <p className="text-gray-400 text-sm mt-1">
-            Uploaded by {photo.uploadedByName || "Unknown"}
-          </p>
-        </div>
-      </div>
-
-      {/* Click outside to close */}
-      <div
-        className="absolute inset-0 -z-10"
-        onClick={onClose} 
-      />
-    </div>
-  );
-}
+import AddToAlbumModal from "@/components/AddToAlbumModal";
 
 export default function PhotosPage() {
   const { user } = useAuth();
@@ -199,6 +33,8 @@ export default function PhotosPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
+  const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -290,6 +126,220 @@ export default function PhotosPage() {
     }
   };
 
+  // Handlers for the album modal
+  const openAddToAlbumModal = (photo: any) => {
+    setSelectedPhotoForAlbum(photo);
+    setShowAddToAlbumModal(true);
+  };
+
+  const closeAddToAlbumModal = () => {
+    setShowAddToAlbumModal(false);
+    setSelectedPhotoForAlbum(null);
+  };
+
+  const handleAlbumSuccess = () => {
+    // Optionally refresh the photos data to show updated album info
+    // You could add a small refresh here or just close the modal
+  };
+
+  // Photo Modal Component
+  function PhotoModal({ photo, onClose, onPrevious, onNext, hasPrevious, hasNext, onAddToAlbum }: {
+    photo: any;
+    onClose: () => void;
+    onPrevious: () => void;
+    onNext: () => void;
+    hasPrevious: boolean;
+    hasNext: boolean;
+    onAddToAlbum?: () => void;
+  }) {
+    // Close modal on escape key
+    useEffect(() => {
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === "Escape") onClose();
+        if (e.key === "ArrowLeft" && hasPrevious) onPrevious();
+        if (e.key === "ArrowRight" && hasNext) onNext();
+      };
+
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }, [onClose, onPrevious, onNext, hasPrevious, hasNext]);
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+        >
+          <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Previous button */}
+        {hasPrevious && (
+          <button
+            onClick={onPrevious}
+            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
+          >
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+
+        {/* Next button */}
+        {hasNext && (
+          <button
+            onClick={onNext}
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
+          >
+            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        )}
+
+        {/* Add to Album button */}
+        {onAddToAlbum && (
+          <button
+            onClick={onAddToAlbum}
+            className="absolute top-4 left-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm transition-colors z-10"
+          >
+            Add to Album
+          </button>
+        )}
+
+        {/* Photo */}
+        <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
+          <img
+            src={photo.url}
+            alt={photo.title || "Photo"}
+            className="max-w-full max-h-[80vh] object-contain rounded-lg"  
+          />
+
+          {/* Photo info */}
+          <div className="text-center mt-4">
+            <h3 className="text-white text-lg font-semibold">{photo.title || "Untitled Photo"}</h3>
+            {photo.description && (
+              <p className="text-gray-300 text-sm mt-2">{photo.description}</p>
+            )}
+            <p className="text-gray-400 text-sm mt-1">
+              Uploaded by {photo.uploadedByName || "Unknown"}
+            </p>
+          </div>
+        </div>
+
+        {/* Click outside to close */}
+        <div
+          className="absolute inset-0 -z-10"
+          onClick={onClose} 
+        />
+      </div>
+    );
+  }
+
+  // Reuse the same components from dashboard 
+  function SortablePhoto({ photo, onClick, onAddToAlbum }: { 
+    photo: any; 
+    onClick: () => void;
+    onAddToAlbum: () => void;
+  }) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+    } = useSortable({ id: photo.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+      >
+        {photo.url ? (
+          <img
+            src={photo.url}
+            alt={photo.title || "Photo"}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log("Photo clicked:", photo.title);
+              onClick();
+            }} 
+          />
+        ) : (
+          <div
+            className="w-full h-full bg-gray-200 flex items-center justify-center cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+          >
+            <svg
+              className="h-8 w-8 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
+              />
+            </svg>
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
+
+        <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
+          <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
+            {photo.title || "Untitled Photo"}
+          </p>
+        </div>
+
+        {/* Action buttons - show on hover */}
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToAlbum();
+            }}
+            className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
+            title="Add to Album"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Separate drag handle - only this area is draggable */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
+          title="Drag to reorder"
+        >
+          <div className="bg-black bg-opacity-70 rounded-md p-2 hover:bg-opacity-90 transition-all">
+            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>   
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -380,6 +430,7 @@ export default function PhotosPage() {
                       key={photo.id}
                       photo={photo}
                       onClick={() => openPhotoModal(photo, index)} 
+                      onAddToAlbum={() => openAddToAlbumModal(photo)}
                     />
                   ))}
                 </div>
@@ -411,7 +462,18 @@ export default function PhotosPage() {
           onPrevious={goToPreviousPhoto}
           onNext={goToNextPhoto}
           hasPrevious={selectedPhotoIndex > 0}
-          hasNext={selectedPhotoIndex < photos.length - 1} 
+          hasNext={selectedPhotoIndex < photos.length - 1}
+          onAddToAlbum={() => openAddToAlbumModal(selectedPhoto)}
+        />
+      )}
+
+      {/* Add to Album Modal */}
+      {showAddToAlbumModal && selectedPhotoForAlbum && (
+        <AddToAlbumModal
+          photo={selectedPhotoForAlbum}
+          isOpen={showAddToAlbumModal}
+          onClose={closeAddToAlbumModal}
+          onSuccess={handleAlbumSuccess}
         />
       )}
     </div>
