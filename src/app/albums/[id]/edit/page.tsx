@@ -174,6 +174,8 @@ export default function EditAlbumPage({
 
             <div className="flex items-center gap-4">
               <Link
+                href={`/albums/${albumId}`}
+                className="text-gray-600 hover:text-gray-800 text-sm"
               >
                 ← Back to Album
               </Link>
