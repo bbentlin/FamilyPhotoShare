@@ -18,6 +18,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { use } from "react";
 import SetCoverPhotoModal from "@/components/SetCoverPhotoModal";
+import PhotoModal from "@/components/PhotoModal";
 
 interface Album {
   id: string;
@@ -44,6 +45,9 @@ export default function AlbumPage({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSetCoverModal, setShowSetCoverModal] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   // Unwrap params using React.use()
   const resolvedParams = use(params);
@@ -136,6 +140,34 @@ export default function AlbumPage({
     } catch (error) {
       console.error("Error updating cover photo:", error);
       alert("Failed to update cover photo. Please try again.");
+    }
+  };
+
+  const openPhotoModal = (photo: any, index: number) => {
+    setSelectedPhoto(photo);
+    setSelectedPhotoIndex(index);
+    setShowPhotoModal(true);
+  };
+
+  const closePhotoModal = () => {
+    setShowPhotoModal(false);
+    setSelectedPhoto(null);
+    setSelectedPhotoIndex(0);
+  };
+
+  const goToPreviousPhoto = () => {
+    if (selectedPhotoIndex > 0) {
+      const newIndex = selectedPhotoIndex - 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(photos[newIndex]);
+    }
+  };
+
+  const goToNextPhoto = () => {
+    if (selectedPhotoIndex < photos.length - 1) {
+      const newIndex = selectedPhotoIndex + 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(photos[newIndex]);
     }
   };
 
@@ -263,10 +295,17 @@ export default function AlbumPage({
             </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {photos.map((photo) => (
+              {photos.map((photo, index) => (
                 <div
                   key={photo.id}
-                  className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
+                  className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-pointer"
+                  onClick={(e) => {
+                    // Only open modal if we're not clicking on the cover button
+                    const target = e.target as HTMLElement;
+                    if (!target.closest("button")) {
+                      openPhotoModal(photo, index);
+                    }
+                  }}
                 >
                   {photo.url ? (
                     <img
@@ -306,7 +345,8 @@ export default function AlbumPage({
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       <button
                         onClick={(e) => {
-                          e.stopPropagation();
+                          console.log("🎯 COVER BUTTON CLICKED");
+                          e.stopPropagation(); // Prevent container click
                           if (photo.url) {
                             handleQuickSetCover(photo.url);
                           }
@@ -432,6 +472,19 @@ export default function AlbumPage({
           isOpen={showSetCoverModal}
           onClose={() => setShowSetCoverModal(false)}
           onSuccess={handleCoverPhotoUpdate}
+        />
+      )}
+
+      {/* Photo Modal */}
+      {showPhotoModal && selectedPhoto && (
+        <PhotoModal
+          photo={selectedPhoto}
+          isOpen={showPhotoModal}
+          onClose={closePhotoModal}
+          onPrevious={goToPreviousPhoto}
+          onNext={goToNextPhoto}
+          hasPrevious={selectedPhotoIndex > 0}
+          hasNext={selectedPhotoIndex < photos.length - 1}
         />
       )}
     </div>
