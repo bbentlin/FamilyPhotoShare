@@ -22,14 +22,16 @@ export default function ForgotPasswordPage() {
       setMessage("Check your email for password reset instructions");
       setEmail("");
     } catch (err: any) {
-      setError("Failed to reset your password. Please check if the email is correct.");
+      setError(
+        "Failed to reset your password. Please check if the email is correct."
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h1 className="text-center text-3xl font-bold text-gray-900">
           Family Photo Share
@@ -70,7 +72,7 @@ export default function ForgotPasswordPage() {
                 Email address
               </label>
               <div className="mt-1">
-                <input 
+                <input
                   id="email"
                   name="email"
                   type="email"

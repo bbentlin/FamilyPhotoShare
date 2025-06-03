@@ -315,10 +315,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
             Account Settings
           </h1>
 
@@ -326,8 +326,8 @@ export default function SettingsPage() {
             <div
               className={`mb-6 p-4 rounded-md ${
                 message.type === "success"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
+                  ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                  : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
               }`}
             >
               {message.text}
@@ -336,7 +336,7 @@ export default function SettingsPage() {
 
           <div className="flex flex-col md:flex-row gap-6">
             {/* Sidebar Navigation */}
-            <div className="w-full md:w-64 bg-white rounded-lg shadow">
+            <div className="w-full md:w-64 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
               <nav className="py-4">
                 <ul>
                   <li>
@@ -344,8 +344,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection("profile")}
                       className={`w-full text-left px-4 py-2 ${
                         activeSection === "profile"
-                          ? "bg-blue-50 text-blue-600 border-l-4 border-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Profile Information
@@ -356,8 +356,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection("email")}
                       className={`w-full text-left px-4 py-2 ${
                         activeSection === "email"
-                          ? "bg-blue-50 text-blue-600 border-l-4 border-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Email Settings
@@ -368,8 +368,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection("password")}
                       className={`w-full text-left px-4 py-2 ${
                         activeSection === "password"
-                          ? "bg-blue-50 text-blue-600 border-l-4 border-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Password
@@ -380,8 +380,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection("notifications")}
                       className={`w-full text-left px-4 py-2 ${
                         activeSection === "notifications"
-                          ? "bg-blue-50 text-blue-600 border-l-4 border-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Notifications
@@ -392,8 +392,8 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection("danger")}
                       className={`w-full text-left px-4 py-2 ${
                         activeSection === "danger"
-                          ? "bg-blue-50 text-blue-600 border-l-4 border-blue-600"
-                          : "text-gray-700 hover:bg-gray-50"
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-l-4 border-blue-600 dark:border-blue-400"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                       }`}
                     >
                       Danger Zone
@@ -404,18 +404,18 @@ export default function SettingsPage() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 bg-white rounded-lg shadow p-6">
+            <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
               {/* Profile Information Section */}
               {activeSection === "profile" && (
                 <div>
-                  <h2 className="text-xl font-semibold mb-4">
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
                     Profile Information
                   </h2>
                   <form onSubmit={handleUpdateProfile} className="space-y-4">
                     <div>
                       <label
                         htmlFor="displayName"
-                        className="block text-sm font-medium text-gray-700"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         Display Name
                       </label>
@@ -424,7 +424,23 @@ export default function SettingsPage() {
                         id="displayName"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                     </div>
 
@@ -432,7 +448,7 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-400"
                       >
                         {isLoading ? "Saving..." : "Save Changes"}
                       </button>
@@ -449,7 +465,7 @@ export default function SettingsPage() {
                     <div>
                       <label
                         htmlFor="email"
-                        className="block text-sm font-medium text-gray-700"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         Email Address
                       </label>
@@ -458,14 +474,14 @@ export default function SettingsPage() {
                         id="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                     </div>
 
                     <div>
                       <label
                         htmlFor="currentPassword"
-                        className="block text-sm font-medium text-gray-700"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         Current Password (required to update email)
                       </label>
@@ -474,7 +490,7 @@ export default function SettingsPage() {
                         id="currentPassword"
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                       />
                     </div>
 
@@ -482,7 +498,7 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-400"
                       >
                         {isLoading ? "Updating..." : "Update Email"}
                       </button>
@@ -494,23 +510,23 @@ export default function SettingsPage() {
               {/* Password Section */}
               {activeSection === "password" && (
                 <div>
-                  <h2 className="text-xl font-semibold mb-4">
-                    Update Password
+                  <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">
+                    Change Password
                   </h2>
                   <form onSubmit={updateUserPassword} className="space-y-4">
                     <div>
                       <label
-                        htmlFor="currentPasswordForPw"
-                        className="block text-sm font-medium text-gray-700"
+                        htmlFor="currentPassword"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         Current Password
                       </label>
                       <input
                         type="password"
-                        id="currentPasswordForPw"
+                        id="currentPassword"
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
@@ -518,7 +534,7 @@ export default function SettingsPage() {
                     <div>
                       <label
                         htmlFor="newPassword"
-                        className="block text-sm font-medium text-gray-700"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         New Password
                       </label>
@@ -527,7 +543,7 @@ export default function SettingsPage() {
                         id="newPassword"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
@@ -535,7 +551,7 @@ export default function SettingsPage() {
                     <div>
                       <label
                         htmlFor="confirmPassword"
-                        className="block text-sm font-medium text-gray-700"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
                         Confirm New Password
                       </label>
@@ -544,7 +560,7 @@ export default function SettingsPage() {
                         id="confirmPassword"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                         required
                       />
                     </div>
@@ -553,7 +569,7 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-400"
                       >
                         {isLoading ? "Updating..." : "Update Password"}
                       </button>
@@ -586,7 +602,7 @@ export default function SettingsPage() {
                         />
                         <label
                           htmlFor="emailNotifications"
-                          className="ml-2 block text-sm text-gray-700"
+                          className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                         >
                           Enable email notifications
                         </label>
@@ -605,7 +621,7 @@ export default function SettingsPage() {
                         />
                         <label
                           htmlFor="newUploadsNotification"
-                          className="ml-2 block text-sm text-gray-700"
+                          className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                         >
                           Notify me about new photo uploads
                         </label>
@@ -624,7 +640,7 @@ export default function SettingsPage() {
                         />
                         <label
                           htmlFor="commentsNotification"
-                          className="ml-2 block text-sm text-gray-700"
+                          className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                         >
                           Notify me about comments on my photos
                         </label>
@@ -635,7 +651,7 @@ export default function SettingsPage() {
                       <button
                         type="submit"
                         disabled={isLoading}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-400"
                       >
                         {isLoading ? "Saving..." : "Save Preferences"}
                       </button>
@@ -647,26 +663,16 @@ export default function SettingsPage() {
               {/* Danger Zone Section */}
               {activeSection === "danger" && (
                 <div>
-                  <h2 className="text-xl font-semibold mb-4 text-red-600">
+                  <h2 className="text-xl font-semibold mb-4 text-red-600 dark:text-red-400">
                     Danger Zone
                   </h2>
-                  <div className="border border-red-200 rounded-md p-4 bg-red-50">
-                    <h3 className="text-lg font-medium text-red-800">
+                  <div className="border border-red-200 dark:border-red-800 rounded-md p-4 bg-red-50 dark:bg-red-900/20">
+                    <h3 className="text-lg font-medium text-red-800 dark:text-red-300">
                       Delete Account
                     </h3>
-                    <p className="mt-1 text-sm text-red-700">
+                    <p className="mt-1 text-sm text-red-700 dark:text-red-400">
                       Once you delete your account, there is no going back.
-                      Please be certain.
                     </p>
-                    <div className="mt-4">
-                      <button
-                        type="button"
-                        onClick={handleDeleteAccount}
-                        className="inline-flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      >
-                        Delete Account
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}

@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import Image from "next/image";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword]= useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { signUp } = useAuth();
@@ -47,18 +48,29 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-center text-3xl font-bold text-gray-900">
-          Family Photo Share
-        </h1>
-        <h2 className="mt-6 text-center text-2xl font-bold text-gray-900">
-          Create a new account
-        </h2>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <div className="flex justify-center">
+            <div className="relative h-16 w-16">
+              <Image
+                src="/familylogo.png"
+                alt="Family logo"
+                fill
+                sizes="64px"
+                className="object-contain"
+              />
+            </div>
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+            Create your account
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            Join your family photo sharing
+          </p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {error && (
             <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
               <div className="flex">
@@ -78,7 +90,7 @@ export default function SignupPage() {
                 Full Name
               </label>
               <div className="mt-1">
-                <input 
+                <input
                   id="name"
                   name="name"
                   type="text"
@@ -99,7 +111,7 @@ export default function SignupPage() {
                 Email Address
               </label>
               <div className="mt-1">
-                <input 
+                <input
                   id="email"
                   name="email"
                   type="email"
@@ -120,7 +132,7 @@ export default function SignupPage() {
                 Password
               </label>
               <div className="mt-1">
-                <input 
+                <input
                   id="password"
                   name="password"
                   type="password"
@@ -134,14 +146,14 @@ export default function SignupPage() {
             </div>
 
             <div>
-              <label 
+              <label
                 htmlFor="confirmPassword"
                 className="block text-sm font-medium text-gray-700"
               >
                 Confirm Password
               </label>
               <div className="mt-1">
-                <input 
+                <input
                   id="confirmPassword"
                   name="confirmPassword"
                   type="password"
@@ -180,7 +192,7 @@ export default function SignupPage() {
             <div className="mt-6">
               <Link
                 href="/login"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 border-blue-600"
+                className="w-full flex justify-center py-2 px-4 border border-blue-600 dark:border-blue-500 rounded-md shadow-sm text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Sign in to your account
               </Link>

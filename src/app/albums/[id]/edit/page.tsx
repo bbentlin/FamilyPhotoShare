@@ -3,11 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { doc, getDoc, updateDoc, collection, getDocs, query, orderBy } from "@firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+} from "@firebase/firestore";
 import { db } from "@/lib/firebase";
 import Image from "next/image";
 import Link from "next/link";
 import { use } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 interface Album {
   id: string;
@@ -37,7 +46,9 @@ export default function EditAlbumPage({
   const [isPublic, setIsPublic] = useState(false);
 
   // Cover photo selection
-  const [photos, setPhotos] = useState<Array<{ id: string; [key: string]: any }>>([]);
+  const [photos, setPhotos] = useState<
+    Array<{ id: string; [key: string]: any }>
+  >([]);
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState("");
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(true);
 
@@ -50,7 +61,6 @@ export default function EditAlbumPage({
       router.push("/login");
       return;
     }
-
 
     fetchAlbumData();
     fetchUserPhotos();
@@ -67,13 +77,12 @@ export default function EditAlbumPage({
 
       const albumData = { id: albumDoc.id, ...albumDoc.data() } as Album;
       setAlbum(albumData);
-      
+
       // Set form values
       setTitle(albumData.title);
       setDescription(albumData.description || "");
       setIsPublic(albumData.isPublic);
       setSelectedCoverPhoto(albumData.coverPhoto || "");
-
     } catch (error) {
       console.error("Error fetching album:", error);
       setError("Failed to load album data");
@@ -90,9 +99,9 @@ export default function EditAlbumPage({
         orderBy("createdAt", "desc")
       );
       const photoSnapshot = await getDocs(photosQuery);
-      const photosData = photoSnapshot.docs.map(doc => ({
+      const photosData = photoSnapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       }));
       setPhotos(photosData);
     } catch (error) {
@@ -115,12 +124,11 @@ export default function EditAlbumPage({
         description: description.trim(),
         isPublic,
         coverPhoto: selectedCoverPhoto || null,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       // Redirect back to the album
       router.push(`/albums/${albumId}`);
-
     } catch (error) {
       console.error("Error updating album:", error);
       setError("Failed to update album. Please try again.");
@@ -144,7 +152,9 @@ export default function EditAlbumPage({
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Album not found</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Album not found
+          </h2>
           <Link href="/albums" className="text-blue-600 hover:text-blue-800">
             ← Back to Albums
           </Link>
@@ -154,30 +164,45 @@ export default function EditAlbumPage({
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="relative h-8 w-8">
-                <Image
-                  src="/familylogo.png"
-                  alt="Family logo"
-                  fill
-                  sizes="32px"
-                  className="object-contain" 
-                />
-              </div>
-              <span className="text-xl font-bold text-blue-600">FPS</span>
-            </Link>
-
             <div className="flex items-center gap-4">
               <Link
                 href={`/albums/${albumId}`}
-                className="text-gray-600 hover:text-gray-800 text-sm"
+                className="flex items-center gap-2"
               >
-                ← Back to Album
+                <svg
+                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+                <span className="text-gray-500 dark:text-gray-400">
+                  Back to Album
+                </span>
+              </Link>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                FPS
+              </span>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <Link
+                href="/dashboard"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 text-sm font-medium transition-colors"
+              >
+                Dashboard
               </Link>
             </div>
           </div>
@@ -186,10 +211,14 @@ export default function EditAlbumPage({
 
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Edit Album</h1>
-            <p className="text-gray-600">Update your album details and settings</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Edit Album
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Update your album details and settings
+            </p>
           </div>
 
           {/* Error Message */}
@@ -203,7 +232,10 @@ export default function EditAlbumPage({
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Album Title */}
             <div>
-              <label htmlFor="title" className="block tex-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="title"
+                className="block tex-sm font-medium text-gray-700 mb-2"
+              >
                 Album Title *
               </label>
               <input
@@ -212,7 +244,7 @@ export default function EditAlbumPage({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter album title..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isUpdating}
                 required
                 maxLength={100}
@@ -221,7 +253,10 @@ export default function EditAlbumPage({
 
             {/* Album Description */}
             <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Description (Optional)
               </label>
               <textarea
@@ -230,9 +265,9 @@ export default function EditAlbumPage({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe your album..."
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                 disabled={isUpdating}
-                maxLength={500} 
+                maxLength={500}
               />
             </div>
 
@@ -248,7 +283,9 @@ export default function EditAlbumPage({
               {isLoadingPhotos ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">Loading your photos...</p>
+                  <p className="text-sm text-gray-600">
+                    Loading your photos...
+                  </p>
                 </div>
               ) : photos.length > 0 ? (
                 <>
@@ -265,12 +302,26 @@ export default function EditAlbumPage({
                       } ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <div className="flex items-center justify-center">
-                        <svg className="h-8 w-8 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <svg
+                          className="h-8 w-8 text-gray-400 mr-2"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
                         </svg>
-                        <span className={`font-medium ${
-                           selectedCoverPhoto === "" ? "text-blue-700" : "text-gray-600"
-                        }`}>
+                        <span
+                          className={`font-medium ${
+                            selectedCoverPhoto === ""
+                              ? "text-blue-700"
+                              : "text-gray-600"
+                          }`}
+                        >
                           No cover photo
                         </span>
                       </div>
@@ -287,9 +338,11 @@ export default function EditAlbumPage({
                             ? "border-blue-500 ring-2 ring-blue200"
                             : "border-transparent hover:border-gray-300"
                         } ${isUpdating ? "opacity-50 cursor-not-allowed" : ""}`}
-                        onClick={() => !isUpdating && setSelectedCoverPhoto(photo.url)} 
+                        onClick={() =>
+                          !isUpdating && setSelectedCoverPhoto(photo.url)
+                        }
                       >
-                        <img 
+                        <img
                           src={photo.url}
                           alt={photo.title || "Photo"}
                           className="w-full h-full object-cover"
@@ -299,8 +352,18 @@ export default function EditAlbumPage({
                         {selectedCoverPhoto === photo.url && (
                           <div className="absolute inset-0 bg-blue-600 bg-opacity-20 flex items-center justify-center">
                             <div className="bg-blue-600 text-white rounded-full p-1">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              <svg
+                                className="h-3 w-3"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
                               </svg>
                             </div>
                           </div>
@@ -311,18 +374,32 @@ export default function EditAlbumPage({
                 </>
               ) : (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                  <svg className="mx-auto h-12 w-12 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400 mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
                   </svg>
                   <p className="text-gray-500 mb-2">No photos available</p>
-                  <p className="text-sm text-gray-400">Upload some photos first</p>
+                  <p className="text-sm text-gray-400">
+                    Upload some photos first
+                  </p>
                 </div>
               )}
             </div>
 
             {/* Privacy Settings */}
             <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Privacy Settings</h3>
+              <h3 className="text-sm font-medium text-gray-900 mb-3">
+                Privacy Settings
+              </h3>
 
               <label className="flex items-center">
                 <input
@@ -330,12 +407,15 @@ export default function EditAlbumPage({
                   checked={isPublic}
                   onChange={(e) => setIsPublic(e.target.checked)}
                   disabled={isUpdating}
-                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <div className="ml-3">
-                  <span className="text-sm font-medium text-gray-700">Make this album public</span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Make this album public
+                  </span>
                   <p className="text-xs text-gray-500 mt-1">
-                    Public albums can be viewed by all family members. Private albums are only visible to you unless shared.
+                    Public albums can be viewed by all family members. Private
+                    albums are only visible to you unless shared.
                   </p>
                 </div>
               </label>
@@ -353,7 +433,7 @@ export default function EditAlbumPage({
               <button
                 type="submit"
                 disabled={!title.trim() || isUpdating}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isUpdating ? (
                   <div className="flex items-center">

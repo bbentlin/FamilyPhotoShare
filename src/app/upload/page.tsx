@@ -4,10 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, getDocs, query, addDoc, serverTimestamp, orderBy } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  addDoc,
+  serverTimestamp,
+  orderBy,
+} from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
 import Image from "next/image";
 import Link from "next/link";
+import ThemeToggle from "@/components/ThemeToggle";
 
 interface PhotoFile {
   file: File;
@@ -21,10 +29,14 @@ export default function UploadPage() {
   const router = useRouter();
   const [selectedFiles, setSelectedFiles] = useState<PhotoFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
+  const [uploadProgress, setUploadProgress] = useState<{
+    [key: string]: number;
+  }>({});
   const [albumTitle, setAlbumTitle] = useState("");
   const [error, setError] = useState("");
-  const [albums, setAlbums] = useState<Array<{ id: string; [key: string]: any }>>([]);
+  const [albums, setAlbums] = useState<
+    Array<{ id: string; [key: string]: any }>
+  >([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
 
   // Fetch albums
@@ -37,9 +49,9 @@ export default function UploadPage() {
             orderBy("updatedAt", "desc")
           );
           const albumSnapshot = await getDocs(albumsQuery);
-          const albumsData = albumSnapshot.docs.map(doc => ({
+          const albumsData = albumSnapshot.docs.map((doc) => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
           }));
           setAlbums(albumsData);
         } catch (error) {
@@ -55,7 +67,7 @@ export default function UploadPage() {
     const files = Array.from(e.target.files || []);
 
     // Filter for image files only
-    const imageFiles = files.filter(file => file.type.startsWith("image/"));
+    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
 
     if (imageFiles.length !== files.length) {
       setError("Only image files are allowed");
@@ -63,30 +75,32 @@ export default function UploadPage() {
     }
 
     // Create preview objects
-    const newFiles: PhotoFile[] = imageFiles.map(file => ({
+    const newFiles: PhotoFile[] = imageFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       title: file.name.split(",")[0], // Remove extension
-      description: ""
+      description: "",
     }));
 
-    setSelectedFiles(prev => [...prev, ...newFiles]);
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
     setError("");
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles(prev => {
+    setSelectedFiles((prev) => {
       // Clean up the preview URL
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
   };
 
-  const updateFileMetadata = (index: number, field: "title" | "description", value: string) => {
-    setSelectedFiles(prev => 
-      prev.map((file, i) => 
-        i === index ? { ...file, [field]: value } : file
-      )
+  const updateFileMetadata = (
+    index: number,
+    field: "title" | "description",
+    value: string
+  ) => {
+    setSelectedFiles((prev) =>
+      prev.map((file, i) => (i === index ? { ...file, [field]: value } : file))
     );
   };
 
@@ -109,7 +123,7 @@ export default function UploadPage() {
         const storageRef = ref(storage, `photos/${user.uid}/${fileId}`);
 
         // Upload file
-        setUploadProgress(prev => ({ ...prev, [fileId]: 0 }));
+        setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
 
         const snapshot = await uploadBytes(storageRef, photoFile.file);
         const downloadURL = await getDownloadURL(snapshot.ref);
@@ -129,16 +143,16 @@ export default function UploadPage() {
           sharedWith: [], // Array of user IDs who can view this photo
           tags: [],
           likes: [],
-          comments: []
+          comments: [],
         });
 
         uploadedPhotos.push({
           id: photoDoc.id,
           url: downloadURL,
-          title: photoFile.title
+          title: photoFile.title,
         });
 
-        setUploadProgress(prev => ({ ...prev, [fileId]: 100 }));
+        setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
       }
 
       // If album title is provided, create an album
@@ -150,20 +164,19 @@ export default function UploadPage() {
           createdByName: user.displayName || user.email,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          photos: uploadedPhotos.map(photo => photo.id),
+          photos: uploadedPhotos.map((photo) => photo.id),
           photoCount: uploadedPhotos.length,
           coverPhoto: uploadedPhotos[0]?.url || null,
           sharedWith: [],
           isPublic: false,
         });
-      }  
+      }
 
       // Clean up preview URLs
-      selectedFiles.forEach(file => URL.revokeObjectURL(file.preview));
-      
+      selectedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
+
       // Redirect to dashboard
       router.push("/dashboard");
-
     } catch (error) {
       console.error("Upload error:", error);
       setError("Failed to upload photos. Please try again.");
@@ -179,30 +192,32 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="relative h-8 w-8">
-              <Image
-                src="/familylogo.png"
-                alt="Family Logo"
-                fill
-                sizes="32px"
-                className="object-contain" 
-              />
-            </div>
-            <span className="text-xl font-bold text-blue-600">FPS</span>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="text-gray-600 hover:text-gray-800"
-            >
-              Cancel
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/dashboard" className="flex items-center gap-2">
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                FPS
+              </span>
             </Link>
+
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <Link
+                href="/photos"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 text-sm font-medium transition-colors"
+              >
+                View Photos
+              </Link>
+              <Link
+                href="/albums"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 text-sm font-medium transition-colors"
+              >
+                Albums
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -216,10 +231,13 @@ export default function UploadPage() {
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <h2 className="text-lg font-semibold mb-4">Album Information</h2>
             <div>
-              <label htmlFor="albumTitle" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="albumTitle"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Album Title
               </label>
-              <input 
+              <input
                 type="text"
                 value={albumTitle}
                 onChange={(e) => setAlbumTitle(e.target.value)}
@@ -227,7 +245,8 @@ export default function UploadPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Leave empty to upload individual photos without creating an album
+                Leave empty to upload individual photos without creating an
+                album
               </p>
             </div>
           </div>
@@ -237,13 +256,27 @@ export default function UploadPage() {
             <h2 className="text-lg font-semibold mb-4">Select Photos</h2>
 
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400 mb-4"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 48 48"
+              >
+                <path
+                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
-              <div className="text-xl mb-2">Drop photos here or click to browse</div>
-              <p className="text-gray-500 mb-4">Support for JPG, PNG, GIF files</p>
+              <div className="text-xl mb-2">
+                Drop photos here or click to browse
+              </div>
+              <p className="text-gray-500 mb-4">
+                Support for JPG, PNG, GIF files
+              </p>
 
-              <input 
+              <input
                 type="file"
                 multiple
                 accept="image/*"
@@ -281,13 +314,16 @@ export default function UploadPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {selectedFiles.map((photoFile, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div
+                    key={index}
+                    className="border border-gray-200 rounded-lg overflow-hidden"
+                  >
                     <div className="relative h-48">
                       <Image
                         src={photoFile.preview}
                         alt="Preview"
                         fill
-                        className="object-cover" 
+                        className="object-cover"
                       />
                       <button
                         onClick={() => removeFile(index)}
@@ -305,8 +341,10 @@ export default function UploadPage() {
                         <input
                           type="text"
                           value={photoFile.title}
-                          onChange={(e) => updateFileMetadata(index, "title", e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                          onChange={(e) =>
+                            updateFileMetadata(index, "title", e.target.value)
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
                       <div>
@@ -315,10 +353,16 @@ export default function UploadPage() {
                         </label>
                         <textarea
                           value={photoFile.description}
-                          onChange={(e) => updateFileMetadata(index, "description", e.target.value)}
+                          onChange={(e) =>
+                            updateFileMetadata(
+                              index,
+                              "description",
+                              e.target.value
+                            )
+                          }
                           rows={2}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          disabled={isUploading} 
+                          disabled={isUploading}
                         />
                       </div>
                     </div>
@@ -330,7 +374,10 @@ export default function UploadPage() {
 
           {/* Album Selection */}
           <div>
-            <label htmlFor="album" className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="album"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Add to Album (Optional)
             </label>
             <select
@@ -357,7 +404,8 @@ export default function UploadPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">
-                    Ready to upload {selectedFiles.length} photo{selectedFiles.length > 1 ? "s" : ""}
+                    Ready to upload {selectedFiles.length} photo
+                    {selectedFiles.length > 1 ? "s" : ""}
                   </p>
                   {albumTitle && (
                     <p className="text-sm text-gray-500 mt-1">
@@ -372,7 +420,7 @@ export default function UploadPage() {
                   className={`px-6 py-3 rounded-lg font-medium ${
                     isUploading
                       ? "bg-gray-400 cursor-not-allowed text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white" 
+                      : "bg-blue-600 hover:bg-blue-700 text-white"
                   }`}
                 >
                   {isUploading ? "Uploading..." : "Upload Photos"}
@@ -386,7 +434,12 @@ export default function UploadPage() {
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{
-                        width: `${(Object.values(uploadProgress).reduce((a, b) => a + b, 0) / selectedFiles.length)}%`
+                        width: `${
+                          Object.values(uploadProgress).reduce(
+                            (a, b) => a + b,
+                            0
+                          ) / selectedFiles.length
+                        }%`,
                       }}
                     ></div>
                   </div>
