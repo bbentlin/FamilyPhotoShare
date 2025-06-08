@@ -265,7 +265,7 @@ export default function HomePage() {
               Ready to Start Sharing?
             </h2>
             <p className="text-xl text-blue-100 dark:text-blue-200 mb-8 max-w-2xl mx-auto">
-              Join thousands of families who are already preserving their
+              Join a half-dozen families who are already preserving their
               precious memories together.
             </p>
             <Link
