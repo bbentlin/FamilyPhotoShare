@@ -2,56 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Chrome-specific dark mode support */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-  }
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color-scheme: light;
-  }
-}
-
-/* Force Chrome to respect color-scheme */
-html {
-  color-scheme: light dark;
-}
-
-html.dark {
-  color-scheme: dark;
-}
-
-html.light {
-  color-scheme: light;
-}
-
-/* Prevent flash of unstyled content */
-html[style*="color-scheme: dark"] {
-  color-scheme: dark;
-}
-
-/* Ensure smooth transitions and prevent flashing */
-* {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-/* Unified scrollbar theming using CSS variables */
+/* Base theme setup */
 :root {
+  color-scheme: light dark;
   --scrollbar-track: #f1f1f1;
   --scrollbar-thumb: #c1c1c1;
   --scrollbar-thumb-hover: #a1a1a1;
 }
 
+/* Dark theme variables */
 .dark {
+  color-scheme: dark;
   --scrollbar-track: #374151;
   --scrollbar-thumb: #6b7280;
   --scrollbar-thumb-hover: #9ca3af;
 }
 
-/* Apply scrollbar styles globally */
+/* Light theme variables */
+.light {
+  color-scheme: light;
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #c1c1c1;
+  --scrollbar-thumb-hover: #a1a1a1;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -70,20 +50,21 @@ html[style*="color-scheme: dark"] {
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Additional Chrome fixes */
-.dark * {
-  color-scheme: dark;
+/* Cursor improvements */
+button,
+a,
+[role="button"],
+.cursor-pointer {
+  cursor: pointer;
 }
 
-.light * {
-  color-scheme: light;
+button:hover,
+a:hover,
+[role="button"]:hover {
+  cursor: pointer;
 }
 
-/* Ensure proper inheritance */
-.dark body {
-  color-scheme: dark;
-}
-
-.light body {
-  color-scheme: light;
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }

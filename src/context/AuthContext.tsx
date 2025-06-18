@@ -8,7 +8,9 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  setPersistence,
+  browserSessionPersistence
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -29,6 +31,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Set session persistence on mount
+    const initializeAuth = async () => {
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+        console.log("Auth persistence set to session-only");
+      } catch (error) {
+        console.error("Error setting auth persistence:", error);
+      }
+    };
+
+    initializeAuth();
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
@@ -39,6 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signUp(email: string, password: string, name: string) {
     try {
+      // Ensure session persistence before signup
+      await setPersistence(auth, browserSessionPersistence);
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       // Update profile with display name
       if (userCredential.user) {
@@ -64,6 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signIn(email: string, password: string) {
     try {
+      // Ensure session persistence before signin
+      await setPersistence(auth, browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       console.error("Error signing in:", error);

@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  useCallback,
-} from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -20,63 +14,46 @@ const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("system");
-  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">(
-    "light"
-  );
+  const [effectiveTheme, setEffectiveTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
   // Enhanced system theme detection that works better with Chrome
+  const forceChromethemeRefresh = useCallback(() => {
+    if (typeof window === "undefined") return;
+    
+    const isChrome = navigator.userAgent.includes('Chrome');
+    if (!isChrome) return;
+    
+    console.log("🔄 Forcing Chrome theme refresh...");
+    
+    // Method 1: Create a new media query
+    const newQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    console.log("Fresh media query result:", newQuery.matches);
+    
+    // Method 2: Clear any inline styles that might interfere
+    document.documentElement.removeAttribute('style');
+    
+    // Method 3: Force recompute
+    const computedStyle = window.getComputedStyle(document.documentElement);
+    console.log("Recomputed color-scheme:", computedStyle.colorScheme);
+    
+    return newQuery.matches ? "dark" : "light";
+  }, []);
+
+  // Update your getSystemTheme function
   const getSystemTheme = useCallback((): "light" | "dark" => {
     if (typeof window === "undefined") return "light";
-
-    // Multiple methods to detect system theme for better Chrome compatibility
-    const methods = [
-      // Method 1: Standard media query
-      () => window.matchMedia("(prefers-color-scheme: dark)").matches,
-
-      // Method 2: Check for CSS custom properties (Chrome sometimes needs this)
-      () => {
-        const testElement = document.createElement("div");
-        testElement.style.cssText = "color-scheme: dark; display: none;";
-        document.body.appendChild(testElement);
-        const computed = window.getComputedStyle(testElement);
-        const result = computed.colorScheme === "dark";
-        document.body.removeChild(testElement);
-        return result;
-      },
-
-      // Method 3: Direct localStorage check with fallback
-      () => {
-        const savedTheme = localStorage.getItem("system-theme-cache");
-        if (savedTheme) return savedTheme === "dark";
-        return window.matchMedia("(prefers-color-scheme: dark)").matches;
-      },
-    ];
-
-    // Try each method and use the first one that gives a definitive result
-    for (const method of methods) {
-      try {
-        const result = method();
-        if (typeof result === "boolean") {
-          const theme = result ? "dark" : "light";
-          // Cache the result for Chrome
-          localStorage.setItem("system-theme-cache", theme);
-          console.log(
-            "System theme detected:",
-            theme,
-            "via method",
-            methods.indexOf(method) + 1
-          );
-          return theme;
-        }
-      } catch (e) {
-        console.warn("Theme detection method failed:", e);
-      }
+    
+    const isChrome = navigator.userAgent.includes('Chrome');
+    
+    if (isChrome) {
+      // Force refresh for Chrome
+      const freshResult = forceChromethemeRefresh();
+      if (freshResult) return freshResult;
     }
-
-    // Ultimate fallback
-    return "light";
-  }, []);
+    
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }, [forceChromethemeRefresh]);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -96,7 +73,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     if (!mounted) return;
 
     let newEffectiveTheme: "light" | "dark";
-
+    
     if (theme === "system") {
       newEffectiveTheme = getSystemTheme();
     } else {
@@ -107,7 +84,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       currentTheme: theme,
       newEffectiveTheme,
       userAgent: navigator.userAgent,
-      isChrome: navigator.userAgent.includes("Chrome"),
+      isChrome: navigator.userAgent.includes('Chrome')
     });
 
     setEffectiveTheme(newEffectiveTheme);
@@ -118,12 +95,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     updateEffectiveTheme();
   }, [updateEffectiveTheme]);
 
-  // Listen for system theme changes with multiple event listeners for Chrome compatibility
+  // Enhanced system theme change detection for Chrome
   useEffect(() => {
     if (!mounted || theme !== "system") return;
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
+    const isChrome = navigator.userAgent.includes('Chrome');
+    
     const handleSystemThemeChange = (e?: MediaQueryListEvent) => {
       console.log("System theme change detected:", e?.matches);
       // Clear cache on system change
@@ -134,19 +112,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }, 100);
     };
 
-    // Method 1: Modern addEventListener
+    // Method 1: Standard event listeners
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener("change", handleSystemThemeChange);
-    }
-
-    // Method 2: Legacy addListener (for older Chrome versions)
-    if (mediaQuery.addListener) {
+    } else if (mediaQuery.addListener) {
+      // Fallback for older browsers
       mediaQuery.addListener(handleSystemThemeChange);
     }
 
-    // Method 3: Polling fallback for Chrome (as a last resort)
-    let pollInterval: NodeJS.Timeout;
-    if (navigator.userAgent.includes("Chrome")) {
+    // Method 2: Polling fallback specifically for Chrome
+    let pollInterval: NodeJS.Timeout | null = null;
+    if (isChrome) {
       let lastKnownTheme = getSystemTheme();
       pollInterval = setInterval(() => {
         const currentTheme = getSystemTheme();
@@ -158,24 +134,37 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       }, 1000); // Check every second
     }
 
-    // Method 4: Visibility change listener (Chrome sometimes needs this)
+    // Method 3: Window focus detection (Chrome sometimes updates theme on focus)
+    const handleWindowFocus = () => {
+      if (isChrome) {
+        setTimeout(() => {
+          updateEffectiveTheme();
+        }, 200);
+      }
+    };
+
+    // Method 4: Visibility change listener
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && isChrome) {
         setTimeout(updateEffectiveTheme, 200);
       }
     };
+
+    window.addEventListener("focus", handleWindowFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       if (mediaQuery.removeEventListener) {
         mediaQuery.removeEventListener("change", handleSystemThemeChange);
-      }
-      if (mediaQuery.removeListener) {
+      } else if (mediaQuery.removeListener) {
         mediaQuery.removeListener(handleSystemThemeChange);
       }
+      
       if (pollInterval) {
         clearInterval(pollInterval);
       }
+      
+      window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [theme, mounted, updateEffectiveTheme, getSystemTheme]);
@@ -186,22 +175,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     const root = document.documentElement;
     const body = document.body;
-
+    const isChrome = navigator.userAgent.includes('Chrome');
+    
     console.log("Applying theme to DOM:", effectiveTheme);
-
+    
     // Remove both classes first
     root.classList.remove("light", "dark");
     body.classList.remove("light", "dark");
-
+    
     // Add the appropriate class
     root.classList.add(effectiveTheme);
     body.classList.add(effectiveTheme);
-
+    
     // Set CSS custom property for Chrome
     root.style.setProperty("color-scheme", effectiveTheme);
-
+    
     // Force repaint for Chrome
-    if (navigator.userAgent.includes("Chrome")) {
+    if (isChrome) {
       root.style.display = "none";
       root.offsetHeight; // Trigger reflow
       root.style.display = "";
@@ -212,7 +202,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     console.log("Theme manually changed:", { from: theme, to: newTheme });
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
-
+    
     // Clear system theme cache when manually changing
     if (newTheme !== "system") {
       localStorage.removeItem("system-theme-cache");
@@ -220,11 +210,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider
-      value={{
-        theme,
-        setTheme: handleSetTheme,
-        effectiveTheme,
+    <ThemeContext.Provider 
+      value={{ 
+        theme, 
+        setTheme: handleSetTheme, 
+        effectiveTheme 
       }}
     >
       {children}
