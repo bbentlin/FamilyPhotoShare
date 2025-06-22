@@ -14,7 +14,7 @@ import {
 import { db } from "@/lib/firebase";
 
 export default function SettingsPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   // User profile states
@@ -162,11 +162,6 @@ export default function SettingsPage() {
     }
   };
 
-  interface UpdatePasswordError {
-    code?: string;
-    message?: string;
-  }
-
   const updateUserPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage({ type: "", text: "" });
@@ -265,44 +260,6 @@ export default function SettingsPage() {
       console.error("Error updating notification preferences:", error);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete your account? This action cannot be undone."
-    );
-
-    if (confirmDelete) {
-      const finalConfirm = window.prompt(
-        'To confirm, please type "DELETE" in the box below:'
-      );
-
-      if (finalConfirm === "DELETE") {
-        try {
-          setIsLoading(true);
-
-          // Delete user document from Firestore
-          if (user) {
-            const userDocRef = doc(db, "users", user.uid);
-            await deleteDoc(userDocRef);
-
-            // Delete user from Firebase Auth
-            await user.delete();
-
-            // Redirect to home page
-            router.push("/");
-          }
-        } catch (error) {
-          console.error("Error deleting account:", error);
-          setMessage({
-            type: "error",
-            text: "Failed to delete account. Please try again or contact support.",
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      }
     }
   };
 

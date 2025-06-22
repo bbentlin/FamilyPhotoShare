@@ -25,6 +25,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Photo, Album } from "@/types";
 
 // Sortable Photo Component
 function SortablePhoto({
@@ -287,12 +288,8 @@ function PhotoModal({
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
-  const [recentPhotos, setRecentPhotos] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
-  const [albums, setAlbums] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
+  const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [familyMembers, setFamilyMembers] = useState<
     Array<{ id: string; [key: string]: any }>
   >([]);
@@ -336,7 +333,7 @@ export default function Dashboard() {
           const photosData = photoSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          }));
+          })) as Photo[];
           setRecentPhotos(photosData);
 
           // Fetch albums
@@ -349,7 +346,7 @@ export default function Dashboard() {
           const albumsData = albumSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          }));
+          })) as Album[];
           setAlbums(albumsData);
 
           // Fetch family members

@@ -1,25 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Photo } from "@/types";
 
 interface PhotoModalProps {
-  photo: any;
+  photo: Photo;
   isOpen: boolean;
   onClose: () => void;
-  onPrevious?: () => void;  
-  onNext?: () => void;      
+  onPrevious?: () => void;
+  onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  onAddToAlbum?: () => void;
 }
 
 export default function PhotoModal({
-  photo, 
+  photo,
   isOpen,
   onClose,
   onPrevious,
   onNext,
   hasPrevious,
-  hasNext
+  hasNext,
+  onAddToAlbum,
 }: PhotoModalProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
@@ -54,7 +57,7 @@ export default function PhotoModal({
   if (!isOpen || !photo) return null;
 
   return (
-    <div 
+    <div
       className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50"
       onClick={onClose}
     >
@@ -65,8 +68,18 @@ export default function PhotoModal({
           className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all"
           aria-label="Close photo"
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
 
@@ -80,8 +93,18 @@ export default function PhotoModal({
             className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-all"
             aria-label="Previous photo"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
         )}
@@ -96,8 +119,18 @@ export default function PhotoModal({
             className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-all"
             aria-label="Next photo"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"> 
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </button>
         )}
@@ -115,7 +148,7 @@ export default function PhotoModal({
           )}
 
           {/* Main Image */}
-          <img 
+          <img
             src={photo.url}
             alt={photo.title || "Photo"}
             className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
@@ -136,12 +169,11 @@ export default function PhotoModal({
           )}
           <div className="flex items-center justify-between text-sm text-gray-400">
             <span>
-              {photo.createdAt?.toDate?.()?.toLocaleDateString() || "Unknown date"}
+              {photo.createdAt?.toDate?.()?.toLocaleDateString() ||
+                "Unknown date"}
             </span>
             {(hasPrevious || hasNext) && (
-              <span>
-                Use arrow keys to navigate
-              </span>
+              <span>Use arrow keys to navigate</span>
             )}
           </div>
         </div>

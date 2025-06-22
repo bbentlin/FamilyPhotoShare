@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { collection, getDocs, query, orderBy } from "@firebase/firestore";
 import { db } from "@/lib/firebase";
-import Image from "next/image";
 import Link from "next/link";
 import {
   DndContext,

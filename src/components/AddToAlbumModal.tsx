@@ -1,24 +1,39 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy, doc, updateDoc, arrayUnion, addDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  arrayUnion,
+  addDoc,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
+import { Photo, Album } from "@/types";
 
 interface AddToAlbumModalProps {
-  photo: any;
+  photo: Photo;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: AddToAlbumModalProps) {
+export default function AddToAlbumModal({
+  photo,
+  isOpen,
+  onClose,
+  onSuccess,
+}: AddToAlbumModalProps) {
   const { user } = useAuth();
-  const [albums, setAlbums] = useState<Array<{ id: string; [key: string]: any }>>([]);
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // New album creation states
   const [showCreateAlbum, setShowCreateAlbum] = useState(false);
   const [newAlbumTitle, setNewAlbumTitle] = useState("");
@@ -26,41 +41,35 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
   const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchAlbums();
-      // Reset form when modal opens
-      setShowCreateAlbum(false);
-      setNewAlbumTitle("");
-      setNewAlbumDescription("");
-      setSelectedAlbum("");
-    }
-  }, [isOpen]);
+    if (isOpen && user) {
+      const loadAlbums = async () => {
+        setIsLoading(true);
+        try {
+          const albumsQuery = query(
+            collection(db, "albums"),
+            orderBy("updatedAt", "desc")
+          );
+          const albumSnapshot = await getDocs(albumsQuery);
+          const albumsData = albumSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Album[];
 
-  const fetchAlbums = async () => {
-    setIsLoading(true);
-    try {
-      const albumsQuery = query(
-        collection(db, "albums"),
-        orderBy("updatedAt", "desc")
-      );
-      const albumSnapshot = await getDocs(albumsQuery);
-      const albumsData = albumSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Filter out albums that already contain this photo
-      const availableAlbums = albumsData.filter(album => 
-        !photo.albums?.includes(album.id)
-      );
-      
-      setAlbums(availableAlbums);
-    } catch (error) {
-      console.error("Error fetching albums:", error);
-    } finally {
-      setIsLoading(false);
+          const availableAlbums = albumsData.filter(
+            (album) => !photo.albums?.includes(album.id)
+          );
+
+          setAlbums(availableAlbums);
+        } catch (error) {
+          console.error("Error fetching albums:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      loadAlbums();
     }
-  };
+  }, [isOpen, user, photo.albums]);
 
   const handleCreateNewAlbum = async () => {
     if (!newAlbumTitle.trim() || !user) return;
@@ -77,13 +86,13 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
         updatedAt: new Date(),
         isPublic: false,
         photoCount: 1, // Will have this photo
-        coverPhoto: photo.url // Use this photo as cover
+        coverPhoto: photo.url, // Use this photo as cover
       });
 
       // Add the photo to the new album
       const photoRef = doc(db, "photos", photo.id);
       await updateDoc(photoRef, {
-        albums: arrayUnion(newAlbumRef.id)
+        albums: arrayUnion(newAlbumRef.id),
       });
 
       onSuccess?.();
@@ -104,15 +113,15 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
       // Update the photo document to include the album
       const photoRef = doc(db, "photos", photo.id);
       await updateDoc(photoRef, {
-        albums: arrayUnion(selectedAlbum)
+        albums: arrayUnion(selectedAlbum),
       });
 
       // Update the album's photo count
       const albumRef = doc(db, "albums", selectedAlbum);
-      const selectedAlbumData = albums.find(a => a.id === selectedAlbum);
+      const selectedAlbumData = albums.find((a) => a.id === selectedAlbum);
       await updateDoc(albumRef, {
         photoCount: (selectedAlbumData?.photoCount || 0) + 1,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       onSuccess?.();
@@ -133,7 +142,7 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           {showCreateAlbum ? "Create New Album" : "Add Photo to Album"}
         </h3>
-        
+
         {/* Photo Preview */}
         <div className="flex items-center mb-4 p-3 bg-gray-50 rounded-lg">
           <img
@@ -142,9 +151,13 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
             className="w-16 h-16 object-cover rounded-lg mr-3"
           />
           <div>
-            <p className="font-medium text-gray-900">{photo.title || "Untitled Photo"}</p>
+            <p className="font-medium text-gray-900">
+              {photo.title || "Untitled Photo"}
+            </p>
             <p className="text-sm text-gray-500">
-              {photo.albums?.length ? `Already in ${photo.albums.length} album(s)` : "Not in any albums"}
+              {photo.albums?.length
+                ? `Already in ${photo.albums.length} album(s)`
+                : "Not in any albums"}
             </p>
           </div>
         </div>
@@ -153,7 +166,10 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
           /* Create New Album Form */
           <div className="space-y-4">
             <div>
-              <label htmlFor="album-title" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="album-title"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Album Title *
               </label>
               <input
@@ -168,7 +184,10 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
             </div>
 
             <div>
-              <label htmlFor="album-description" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="album-description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Description (Optional)
               </label>
               <textarea
@@ -184,7 +203,8 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> This photo will be added to the new album and used as the cover photo.
+                <strong>Note:</strong> This photo will be added to the new album
+                and used as the cover photo.
               </p>
             </div>
 
@@ -197,7 +217,7 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
               >
                 ← Back to album selection
               </button>
-              
+
               <div className="flex gap-3">
                 <button
                   onClick={onClose}
@@ -206,7 +226,7 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
                 >
                   Cancel
                 </button>
-                
+
                 <button
                   onClick={handleCreateNewAlbum}
                   disabled={!newAlbumTitle.trim() || isCreatingAlbum}
@@ -241,8 +261,18 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
                     className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors group"
                   >
                     <div className="flex items-center justify-center">
-                      <svg className="h-5 w-5 text-gray-400 group-hover:text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      <svg
+                        className="h-5 w-5 text-gray-400 group-hover:text-blue-500 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
                       </svg>
                       <span className="text-gray-600 group-hover:text-blue-700 font-medium">
                         Create New Album
@@ -259,13 +289,18 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
                         <div className="w-full border-t border-gray-300" />
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">or add to existing album</span>
+                        <span className="px-2 bg-white text-gray-500">
+                          or add to existing album
+                        </span>
                       </div>
                     </div>
 
                     {/* Album Selection */}
                     <div className="mb-6">
-                      <label htmlFor="album-select" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label
+                        htmlFor="album-select"
+                        className="block text-sm font-medium text-gray-700 mb-2"
+                      >
                         Select Existing Album
                       </label>
                       <select
@@ -292,7 +327,7 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
                       >
                         Cancel
                       </button>
-                      
+
                       <button
                         onClick={handleAddToExistingAlbum}
                         disabled={!selectedAlbum || isSubmitting}
@@ -311,9 +346,12 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
                   </>
                 ) : (
                   <div className="text-center py-6">
-                    <p className="text-gray-500 mb-4">No available albums found.</p>
+                    <p className="text-gray-500 mb-4">
+                      No available albums found.
+                    </p>
                     <p className="text-sm text-gray-400 mb-4">
-                      This photo may already be in all your albums. Create a new album to organize your photos!
+                      This photo may already be in all your albums. Create a new
+                      album to organize your photos!
                     </p>
                   </div>
                 )}
@@ -322,13 +360,12 @@ export default function AddToAlbumModal({ photo, isOpen, onClose, onSuccess }: A
           </>
         )}
       </div>
-      
+
       {/* Click outside to close */}
-      <div 
-        className="absolute inset-0 -z-10" 
+      <div
+        className="absolute inset-0 -z-10"
         onClick={() => !isSubmitting && !isCreatingAlbum && onClose()}
       />
     </div>
   );
 }
-

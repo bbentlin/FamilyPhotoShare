@@ -14,7 +14,6 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import Image from "next/image";
 import Link from "next/link";
 import { use } from "react";
 import SetCoverPhotoModal from "@/components/SetCoverPhotoModal";
@@ -417,7 +416,7 @@ export default function AlbumPage({
               No photos in this album
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Add photos to start building your album
+              Add photos to get started
             </p>
             <Link
               href="/upload"

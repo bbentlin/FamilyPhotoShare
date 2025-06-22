@@ -4,26 +4,20 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import {
-  collection,
-  getDocs,
-  query,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
+import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
+import { FamilyMember } from "@/types";
 
 export default function FamilyPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Redirect if not authenticated
   useEffect(() => {
-    if(!loading && !user) {
+    if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
@@ -42,7 +36,7 @@ export default function FamilyPage() {
       const membersData = membersSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-      }));
+      })) as FamilyMember[];
       setFamilyMembers(membersData);
     } catch (error) {
       console.error("Error fetching family members:", error);
@@ -80,10 +74,12 @@ export default function FamilyPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M15 19l-7-7 7-7" 
+                    d="M15 19l-7-7 7-7"
                   />
                 </svg>
-                <span className="text-gray-500 dark:text-gray-400">Back to Dashboard</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  Back to Dashboard
+                </span>
               </Link>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
                 Family Members
@@ -124,20 +120,23 @@ export default function FamilyPage() {
 
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {familyMembers.map((member) => (
-                <div key={member.id} className="p-6 flex items-center justify-between">
+                <div
+                  key={member.id}
+                  className="p-6 flex items-center justify-between"
+                >
                   <div className="flex items-center">
                     <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-4">
                       {member.photoUrl ? (
-                        <img 
+                        <img
                           src={member.photoUrl}
                           alt={member.name}
                           className="w-full h-full rounded-full object-cover"
-                        /> 
+                        />
                       ) : (
                         <span className="text-blue-600 dark:text-blue-400 font-semibold text-lg">
                           {member.name?.[0]?.toUpperCase() ||
-                           member.email?.[0]?.toUpperCase() ||
-                           "?"}
+                            member.email?.[0]?.toUpperCase() ||
+                            "?"}
                         </span>
                       )}
                     </div>
@@ -145,9 +144,18 @@ export default function FamilyPage() {
                       <h3 className="font-semibold text-gray-900 dark:text-white">
                         {member.name || "Unnamed Member"}
                       </h3>
-                      <p className="text-gray-500 dark:text-gray-400">{member.email}</p>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        {member.email}
+                      </p>
                       <p className="text-sm text-gray-400 dark:text-gray-500">
-                        Joined {new Date(member.joinedAt?.toDate?.() || member.joinedAt).toLocaleDateString()}
+                        Joined{" "}
+                        {new Date(
+                          typeof member.joinedAt === 'string' 
+                            ? member.joinedAt 
+                            : (member.joinedAt && typeof member.joinedAt === 'object' && 'toDate' in member.joinedAt)
+                              ? (member.joinedAt as any).toDate()
+                              : member.joinedAt
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -160,7 +168,6 @@ export default function FamilyPage() {
                     )}
 
                     {/* Add edit/remove buttons here if needed */}
-
                   </div>
                 </div>
               ))}
@@ -174,7 +181,7 @@ export default function FamilyPage() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path 
+              <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
@@ -185,7 +192,8 @@ export default function FamilyPage() {
               No Family Members Yet
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Start building your family photo sharing space by inviting family members.
+              Start building your family photo sharing space by inviting family
+              members.
             </p>
             <Link
               href="/invite"
@@ -201,8 +209,8 @@ export default function FamilyPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 4v16m8-8H4" 
-                />                
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               Invite Your First Family Member
             </Link>

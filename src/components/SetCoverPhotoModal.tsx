@@ -6,14 +6,27 @@ import { db } from "@/lib/firebase";
 
 interface SetCoverPhotoModalProps {
   album: any;
-  photos: Array<{ id: string; url: string; title?: string; [key: string]: any }>;
+  photos: Array<{
+    id: string;
+    url: string;
+    title?: string;
+    [key: string]: any;
+  }>;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (newCoverUrl: string) => void;
 }
 
-export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onSuccess }: SetCoverPhotoModalProps) {
-  const [selectedPhoto, setSelectedPhoto] = useState<string>(album?.coverPhoto || "");
+export default function SetCoverPhotoModal({
+  album,
+  photos,
+  isOpen,
+  onClose,
+  onSuccess,
+}: SetCoverPhotoModalProps) {
+  const [selectedPhoto, setSelectedPhoto] = useState<string>(
+    album?.coverPhoto || ""
+  );
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleUpdateCover = async () => {
@@ -24,7 +37,7 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
       const albumRef = doc(db, "albums", album.id);
       await updateDoc(albumRef, {
         coverPhoto: selectedPhoto || null, // Allow null setting for no cover
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
 
       onSuccess?.(selectedPhoto);
@@ -47,26 +60,41 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
         </h3>
 
         <p className="text-gray-600 mb-6">
-          Select a photo to use as the cover for this album, or choose "No Cover" to remove the current cover.
+          Choose a &quot;cover photo&quot; for this album
+          <br />
+          The selected photo will be used as the &quot;cover photo&quot; for the
+          album
         </p>
 
         {/* No Cover Option */}
         <div className="mb-6">
-          <button 
+          <button
             onClick={() => setSelectedPhoto("")}
             className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors ${
               selectedPhoto === ""
                 ? "border-blue-500 bg-blue-50"
                 : "border-gray-300 hover:border-gray-400"
-          }`}
+            }`}
           >
             <div className="flex items-center justify-center">
-              <svg className="h-8 w-8 text-gray-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg
+                className="h-8 w-8 text-gray-400 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
-              <span className={`font-medium ${
-                selectedPhoto === "" ? "text-blue-700" : "text-gray-600"
-              }`}>
+              <span
+                className={`font-medium ${
+                  selectedPhoto === "" ? "text-blue-700" : "text-gray-600"
+                }`}
+              >
                 No Cover Photo
               </span>
             </div>
@@ -81,7 +109,9 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">or choose from photos</span>
+                <span className="px-2 bg-white text-gray-500">
+                  or choose from photos
+                </span>
               </div>
             </div>
 
@@ -94,21 +124,31 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
                     selectedPhoto === photo.url
                       ? "border-blue-500 ring-2 ring-blue-200"
                       : "border-transparent hover:border-gray-300"
-                    }`}
-                    onClick={() => setSelectedPhoto(photo.url)}
+                  }`}
+                  onClick={() => setSelectedPhoto(photo.url)}
                 >
                   <img
                     src={photo.url}
                     alt={photo.title || "Photo"}
-                    className="w-full h-full object-cover" 
+                    className="w-full h-full object-cover"
                   />
 
                   {/* Selection indicator */}
                   {selectedPhoto === photo.url && (
                     <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
                       <div className="bg-blue-600 text-white rounded-full p-1">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -131,8 +171,18 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
           </>
         ) : (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
             </svg>
           </div>
         )}
@@ -167,7 +217,7 @@ export default function SetCoverPhotoModal({ album, photos, isOpen, onClose, onS
       </div>
 
       {/* Click outside to close */}
-      <div 
+      <div
         className="absolute inset-0 -z-10"
         onClick={() => !isUpdating && onClose()}
       />
