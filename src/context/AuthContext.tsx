@@ -5,6 +5,7 @@ import {
   User,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
   onAuthStateChanged,
   updateProfile,
@@ -12,14 +13,15 @@ import {
   setPersistence,
   browserSessionPersistence
 } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { auth, db, googleProvider } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -70,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailNotifications: true,
           newUploadsNotification: true,
           commentsNotification: true,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          provider: "email"
         });
       }
     } catch (error) {
@@ -86,6 +89,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       console.error("Error signing in:", error);
+      throw error;
+    }
+  }
+
+  async function signInWithGoogle() {
+    try {
+      // Ensure session persistence before signin
+      await setPersistence(auth, browserSessionPersistence);
+
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if user document exists, create if not
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // Create user document for new Google users
+        await setDoc(userDocRef, {
+          displayName: user.displayName || user.email?.split("@")[0] || "Google User",
+          email: user.email,
+          photoURL: user.photoURL,
+          emailNotifications: true,
+          newUploadsNotifications: true,
+          commentsNotification: true,
+          createdAt: new Date().toISOString(),
+          provider: "google"
+        });
+      }
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
       throw error;
     }
   }
@@ -113,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
     logout: logOut,
     resetPassword
   };
