@@ -468,7 +468,7 @@ export default function NewAlbumPage() {
           </h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>
-              • Your album will be created and you'll be taken to the album page
+              • Your album will be created and you&apos;ll be taken to the album page
             </li>
             <li>
               • You can add photos by uploading them or selecting them from

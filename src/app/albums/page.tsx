@@ -7,13 +7,12 @@ import { useRouter } from "next/navigation";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Album } from "@/types";
 
 export default function AlbumsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [albums, setAlbums] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
+  const [albums, setAlbums] = useState<Album[]>([])
   const [isLoading, setIsLoading] = useState(true);
 
   // Redirect if not authenticated
@@ -36,7 +35,7 @@ export default function AlbumsPage() {
           const albumsData = albumSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
-          }));
+          })) as Album[];
           setAlbums(albumsData);
         } catch (error) {
           console.error("Error fetching albums:", error);
@@ -170,7 +169,9 @@ export default function AlbumsPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Updated{" "}
                     {new Date(
-                      album.updatedAt?.toDate?.() || album.updatedAt
+                      typeof album.updatedAt === 'object' && album.updatedAt && 'toDate' in album.updatedAt
+                        ? (album.updatedAt as any).toDate()
+                        : album.updatedAt
                     ).toLocaleDateString()}
                   </p>
                 </div>

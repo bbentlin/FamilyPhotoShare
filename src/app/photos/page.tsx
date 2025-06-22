@@ -24,19 +24,18 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Photo } from "@/types";
 
 export default function PhotosPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [photos, setPhotos] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
-  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<any>(null);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<Photo | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -79,7 +78,7 @@ export default function PhotosPage() {
         const photosData = photoSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as Photo[];
         setPhotos(photosData);
       } catch (error) {
         console.error("Error fetching photos:", error);

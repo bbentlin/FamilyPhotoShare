@@ -409,7 +409,7 @@ export default function UploadPage() {
                   </p>
                   {albumTitle && (
                     <p className="text-sm text-gray-500 mt-1">
-                      Will be added to album: "{albumTitle}"
+                      Will be added to album: &quot;{albumTitle}&quot;
                     </p>
                   )}
                 </div>

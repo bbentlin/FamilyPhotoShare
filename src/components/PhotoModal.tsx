@@ -21,8 +21,7 @@ export default function PhotoModal({
   onPrevious,
   onNext,
   hasPrevious,
-  hasNext,
-  onAddToAlbum,
+  hasNext
 }: PhotoModalProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
@@ -169,7 +168,9 @@ export default function PhotoModal({
           )}
           <div className="flex items-center justify-between text-sm text-gray-400">
             <span>
-              {photo.createdAt?.toDate?.()?.toLocaleDateString() ||
+              {photo.createdAt instanceof Date 
+                ? photo.createdAt.toLocaleDateString()
+                : photo.createdAt?.toDate?.()?.toLocaleDateString() ||
                 "Unknown date"}
             </span>
             {(hasPrevious || hasNext) && (

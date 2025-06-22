@@ -436,7 +436,7 @@ export default function AlbumPage({
               Delete Album
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete "{album.title}"? This action can
+              Are you sure you want to delete &quot;{album.title}&quot;? This action can
               not be undone. The photos will not be deleted, only the album.
             </p>
 

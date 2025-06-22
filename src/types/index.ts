@@ -1,10 +1,12 @@
+import { Timestamp } from "@firebase/firestore";
+
 export interface Photo {
   id: string;
   url: string;
   title?: string;
   description?: string;
-  createdAt: any;
-  createdBy: any;
+  createdAt: Timestamp | Date;
+  createdBy: string;
   albums?: string[];
 }
 
@@ -15,8 +17,8 @@ export interface Album {
   coverPhoto?: string;
   isPublic: boolean;
   createdBy: string;
-  createdAt: any;
-  updatedAt: any;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
   photoCount: number;
 }
 
@@ -26,7 +28,7 @@ export interface FamilyMember {
   email: string;
   photoUrl?: string;
   role?: string;
-  joinedAt: string;
+  joinedAt: Timestamp | Date;
 }
 
 export interface User {
@@ -34,4 +36,9 @@ export interface User {
   email: string;
   displayName?: string;
   photoURL?: string;
+}
+
+export interface FirebaseError {
+  code: string;
+  message: string;
 }
