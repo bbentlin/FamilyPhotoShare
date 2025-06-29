@@ -14,6 +14,7 @@ import {
 import { db } from "@/lib/firebase";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import { Album } from "@/types";
 
 export default function NewAlbumPage() {
   const { user } = useAuth();
@@ -106,7 +107,7 @@ export default function NewAlbumPage() {
 
       // Redirect to the new album
       router.push(`/albums/${albumDoc.id}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error creating album:", error);
       setError("Failed to create album. Please try again.");
     } finally {
@@ -468,7 +469,8 @@ export default function NewAlbumPage() {
           </h3>
           <ul className="text-sm text-blue-800 space-y-1">
             <li>
-              • Your album will be created and you&apos;ll be taken to the album page
+              • Your album will be created and you&apos;ll be taken to the album
+              page
             </li>
             <li>
               • You can add photos by uploading them or selecting them from

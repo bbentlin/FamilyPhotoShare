@@ -17,6 +17,7 @@ export interface Album {
   coverPhoto?: string;
   isPublic: boolean;
   createdBy: string;
+  createdByName: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
   photoCount: number;

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import {
-  collection, 
+  collection,
   addDoc,
   getDocs,
   query,
@@ -29,15 +29,12 @@ interface Invitation {
 export default function InvitePanel() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState<string>("");
   const [isInviting, setIsInviting] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<Invitation[]>([]);
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [message, setMessage] = useState<{text: string; type: "success" | "error"} | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -75,7 +72,7 @@ export default function InvitePanel() {
         ...doc.data(),
       }));
       setFamilyMembers(membersData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching data:", error);
     } finally {
       setIsLoading(false);
@@ -92,21 +89,17 @@ export default function InvitePanel() {
     try {
       // Check if email is already invited or is a member
       const existingInvite = pendingInvites.find((inv) => inv.email === email);
-      const existingMember = familyMembers.find((member) => member.email === email);
+      const existingMember = familyMembers.find(
+        (member) => member.email === email
+      );
 
       if (existingInvite) {
-        setMessage({
-          type: "error",
-          text: "This email already has a pending invitation.",
-        });
+        setMessage({text: "This email already has a pending invitation.", type: "error"});
         return;
       }
 
       if (existingMember) {
-        setMessage({
-          type: "error",
-          text: "This email is already a family member."
-        });
+        setMessage({text: "This email is already a family member.", type: "error"});
         return;
       }
 
@@ -123,18 +116,12 @@ export default function InvitePanel() {
         expiresAt: expiryDate,
       });
 
-      setMessage({
-        type: "success",
-        text: `Invitation sent to ${email}!`,
-      });
+      setMessage({text: `Invitation sent to ${email}!`, type: "success"});
       setEmail("");
       fetchData(); // Refresh the list
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error sending invitation:", error);
-      setMessage({
-        type: "error",
-        text: "Failed to send invitation. Please try again.",
-      });
+      setMessage({text: "Failed to send invitation. Please try again.", type: "error"});
     } finally {
       setIsInviting(false);
     }
@@ -143,17 +130,11 @@ export default function InvitePanel() {
   const handleCancelInvite = async (inviteId: string) => {
     try {
       await deleteDoc(doc(db, "invitations", inviteId));
-      setMessage({
-        type: "success",
-        text: "Invitation canelled",
-      });
-      fetchData(); // Refresh the list  
-    } catch (error) {
+      setMessage({text: "Invitation cancelled", type: "success"});
+      fetchData(); // Refresh the list
+    } catch (error: unknown) {
       console.error("Error cancelling invitation:", error);
-      setMessage({
-        type: "error",
-        text: "Failed to cancel invitation.",
-      });
+      setMessage({text: "Failed to cancel invitation.", type: "error"});
     }
   };
 
@@ -186,10 +167,12 @@ export default function InvitePanel() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M15 19l-7-7 7-7" 
+                    d="M15 19l-7-7 7-7"
                   />
                 </svg>
-                <span className="text-gray-500 dark:text-gray-400">Back to Dashboard</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  Back to Dashboard
+                </span>
               </Link>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
                 Invite Family
@@ -242,7 +225,7 @@ export default function InvitePanel() {
 
           <form onSubmit={handleInvite} className="flex gap-4">
             <div className="flex-1">
-              <input 
+              <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -285,7 +268,9 @@ export default function InvitePanel() {
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         Invited by {invite.invitedByName} •{" "}
-                        {new Date(invite.createdAt?.toDate?.() || invite.createdAt).toLocaleDateString()}
+                        {new Date(
+                          invite.createdAt?.toDate?.() || invite.createdAt
+                        ).toLocaleDateString()}
                       </p>
                     </div>
                     <button
@@ -309,10 +294,12 @@ export default function InvitePanel() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-4h-2M7 9h2" 
+                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m13-4h-2M7 9h2"
                   />
                 </svg>
-                <p className="text-gray-500 dark:text-gray-400">No pending invitations</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No pending invitations
+                </p>
               </div>
             )}
           </div>
@@ -335,13 +322,13 @@ export default function InvitePanel() {
                         <img
                           src={member.photoUrl}
                           alt={member.name}
-                          className="w-full h-full rounded-full object-cover" 
+                          className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
                         <span className="text-blue-600 dark:text-blue-400 font-medium">
-                          {member.name?.[0]?.toUpperCase() || 
-                           member.email?.[0]?.toUpperCase() ||
-                           "?"}
+                          {member.name?.[0]?.toUpperCase() ||
+                            member.email?.[0]?.toUpperCase() ||
+                            "?"}
                         </span>
                       )}
                     </div>
@@ -373,10 +360,12 @@ export default function InvitePanel() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" 
+                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                   />
                 </svg>
-                <p className="text-gray-500 dark:text-gray-400">No family members yet</p>
+                <p className="text-gray-500 dark:text-gray-400">
+                  No family members yet
+                </p>
                 <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
                   Send invitations to get started
                 </p>
@@ -388,7 +377,7 @@ export default function InvitePanel() {
         {/* Info Section */}
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
           <div className="flex items-start">
-            <svg 
+            <svg
               className="h-6 w-6 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
@@ -398,7 +387,7 @@ export default function InvitePanel() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
             <div>
@@ -407,7 +396,9 @@ export default function InvitePanel() {
               </h3>
               <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                 <li>• Invitations are sent by email with a secure join link</li>
-                <li>• Family members can view and upload photos once they join</li>
+                <li>
+                  • Family members can view and upload photos once they join
+                </li>
                 <li>• Invitations expire after 7 days for security</li>
                 <li>• You can cancel pending invitations at any time</li>
               </ul>

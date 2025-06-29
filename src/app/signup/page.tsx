@@ -24,8 +24,9 @@ export default function SignUpPage() {
     try {
       await signUp(email, password, name);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Failed to create account. Please try again.");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to create account. Please try again.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -39,18 +40,19 @@ export default function SignUpPage() {
       // Use the same signInWithGoogle function - it automatically creates accounts
       await signInWithGoogle();
       router.push("/dashboard");
-    } catch (err: any) {
-      if (err.code === "auth/popup-closed-by-user") {
+    } catch (err: unknown) {
+      const firebaseError = err as any;
+      if (firebaseError.code === "auth/popup-closed-by-user") {
         setError("Sign-up was cancelled. Please try again.");
-      } else if (err.code === "auth/popup-blocked") {
+      } else if (firebaseError.code === "auth/popup-blocked") {
         setError("Popup was blocked. Please allow popups and try again.");
-      } else if (err.code === "auth/account-exists-with-different-credential") {
+      } else if (firebaseError.code === "auth/account-exists-with-different-credential") {
         setError(
           "An account already exists with this email. Please sign in instead."
         );
       } else {
         setError(
-          err.message ||
+          firebaseError.message ||
             "Failed to create account with Google. Please try again."
         );
       }

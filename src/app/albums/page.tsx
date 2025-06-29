@@ -12,7 +12,7 @@ import { Album } from "@/types";
 export default function AlbumsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [albums, setAlbums] = useState<Album[]>([])
+  const [albums, setAlbums] = useState<Album[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Redirect if not authenticated
@@ -37,7 +37,7 @@ export default function AlbumsPage() {
             ...doc.data(),
           })) as Album[];
           setAlbums(albumsData);
-        } catch (error) {
+        } catch (error: unknown) {
           console.error("Error fetching albums:", error);
         } finally {
           setIsLoading(false);
@@ -169,7 +169,9 @@ export default function AlbumsPage() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Updated{" "}
                     {new Date(
-                      typeof album.updatedAt === 'object' && album.updatedAt && 'toDate' in album.updatedAt
+                      typeof album.updatedAt === "object" &&
+                      album.updatedAt &&
+                      "toDate" in album.updatedAt
                         ? (album.updatedAt as any).toDate()
                         : album.updatedAt
                     ).toLocaleDateString()}

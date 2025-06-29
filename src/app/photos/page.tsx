@@ -35,7 +35,8 @@ export default function PhotosPage() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
-  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<Photo | null>(null);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
+    useState<Photo | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -80,7 +81,7 @@ export default function PhotosPage() {
           ...doc.data(),
         })) as Photo[];
         setPhotos(photosData);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching photos:", error);
       } finally {
         setIsLoading(false);
@@ -128,7 +129,7 @@ export default function PhotosPage() {
   };
 
   // Handlers for the album modal
-  const openAddToAlbumModal = (photo: any) => {
+  const openAddToAlbumModal = (photo: Photo) => {
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
   };
@@ -153,7 +154,7 @@ export default function PhotosPage() {
     hasNext,
     onAddToAlbum,
   }: {
-    photo: any;
+    photo: Photo;
     onClose: () => void;
     onPrevious: () => void;
     onNext: () => void;
@@ -266,7 +267,7 @@ export default function PhotosPage() {
               <p className="text-gray-300 text-sm mt-2">{photo.description}</p>
             )}
             <p className="text-gray-400 text-sm mt-1">
-              Uploaded by {photo.uploadedByName || "Unknown"}
+              Uploaded by {(photo as any).uploadedByName || "Unknown"}
             </p>
           </div>
         </div>

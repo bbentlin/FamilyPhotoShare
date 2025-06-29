@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import {
   updateProfile,
   updateEmail,
@@ -139,13 +139,14 @@ export default function SettingsPage() {
         });
         setCurrentPassword("");
       }
-    } catch (error: any) {
-      if (error.code === "auth/wrong-password") {
+    } catch (error: unknown) {
+      const authError = error as { code?: string };
+      if (authError.code === "auth/wrong-password") {
         setMessage({
           type: "error",
           text: "Incorrect password. Please try again.",
         });
-      } else if (error.code === "auth/requires-recent-login") {
+      } else if (authError.code === "auth/requires-recent-login") {
         setMessage({
           type: "error",
           text: "This operation requires recent authentication. Please log in again before retrying.",
@@ -640,3 +641,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

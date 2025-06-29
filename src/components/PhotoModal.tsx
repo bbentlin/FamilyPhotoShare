@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import { Photo } from "@/types";
 
 interface PhotoModalProps {
-  photo: Photo;
+  photo: Photo; 
   isOpen: boolean;
   onClose: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
-  onAddToAlbum?: () => void;
 }
 
 export default function PhotoModal({
@@ -21,7 +20,7 @@ export default function PhotoModal({
   onPrevious,
   onNext,
   hasPrevious,
-  hasNext
+  hasNext,
 }: PhotoModalProps) {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
@@ -168,10 +167,10 @@ export default function PhotoModal({
           )}
           <div className="flex items-center justify-between text-sm text-gray-400">
             <span>
-              {photo.createdAt instanceof Date 
+              {photo.createdAt instanceof Date
                 ? photo.createdAt.toLocaleDateString()
                 : photo.createdAt?.toDate?.()?.toLocaleDateString() ||
-                "Unknown date"}
+                  "Unknown date"}
             </span>
             {(hasPrevious || hasNext) && (
               <span>Use arrow keys to navigate</span>

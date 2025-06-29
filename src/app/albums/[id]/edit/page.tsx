@@ -16,7 +16,6 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { use } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
-
 interface Album {
   id: string;
   title: string;
@@ -86,7 +85,7 @@ export default function EditAlbumPage({
       setDescription(albumData.description || "");
       setIsPublic(albumData.isPublic);
       setSelectedCoverPhoto(albumData.coverPhoto || "");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching album:", error);
       setError("Failed to load album data");
     } finally {
@@ -107,7 +106,7 @@ export default function EditAlbumPage({
         ...doc.data(),
       }));
       setPhotos(photosData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching photos:", error);
     } finally {
       setIsLoadingPhotos(false);
@@ -132,7 +131,7 @@ export default function EditAlbumPage({
 
       // Redirect back to the album
       router.push(`/albums/${albumId}`);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error updating album:", error);
       setError("Failed to update album. Please try again.");
     } finally {

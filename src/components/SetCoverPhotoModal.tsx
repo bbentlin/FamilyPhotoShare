@@ -3,18 +3,14 @@
 import { useState } from "react";
 import { doc, updateDoc } from "@firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Photo, Album } from "@/types";
 
 interface SetCoverPhotoModalProps {
-  album: any;
-  photos: Array<{
-    id: string;
-    url: string;
-    title?: string;
-    [key: string]: any;
-  }>;
+  album: Album;
+  photos: Photo[];
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (newCoverUrl: string) => void;
+  onPhotoSelected: (photoId: string) => void;
 }
 
 export default function SetCoverPhotoModal({
@@ -22,7 +18,7 @@ export default function SetCoverPhotoModal({
   photos,
   isOpen,
   onClose,
-  onSuccess,
+  onPhotoSelected,
 }: SetCoverPhotoModalProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string>(
     album?.coverPhoto || ""
@@ -40,7 +36,7 @@ export default function SetCoverPhotoModal({
         updatedAt: new Date(),
       });
 
-      onSuccess?.(selectedPhoto);
+      onPhotoSelected(selectedPhoto);
       onClose();
     } catch (error) {
       console.error("Error updating cover photo:", error);
@@ -48,6 +44,10 @@ export default function SetCoverPhotoModal({
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handlePhotoSelect = (photo: Photo) => {
+    setSelectedPhoto(photo.url);
   };
 
   if (!isOpen) return null;
@@ -125,7 +125,7 @@ export default function SetCoverPhotoModal({
                       ? "border-blue-500 ring-2 ring-blue-200"
                       : "border-transparent hover:border-gray-300"
                   }`}
-                  onClick={() => setSelectedPhoto(photo.url)}
+                  onClick={() => handlePhotoSelect(photo)}
                 >
                   <img
                     src={photo.url}

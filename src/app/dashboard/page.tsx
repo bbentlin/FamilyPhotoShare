@@ -357,7 +357,7 @@ export default function Dashboard() {
             ...doc.data(),
           }));
           setFamilyMembers(membersData);
-        } catch (error) {
+        } catch (error: unknown) {
           console.error("Error fetching data:", error);
         } finally {
           setIsLoading(false);
@@ -389,7 +389,7 @@ export default function Dashboard() {
           "Photos reordered:",
           newPhotos.map((p) => p.title)
         );
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error updating photo order:", error);
       }
     }

@@ -38,7 +38,7 @@ export default function FamilyPage() {
         ...doc.data(),
       })) as FamilyMember[];
       setFamilyMembers(membersData);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error fetching family members:", error);
     } finally {
       setIsLoading(false);
@@ -150,11 +150,13 @@ export default function FamilyPage() {
                       <p className="text-sm text-gray-400 dark:text-gray-500">
                         Joined{" "}
                         {new Date(
-                          typeof member.joinedAt === 'string' 
-                            ? member.joinedAt 
-                            : (member.joinedAt && typeof member.joinedAt === 'object' && 'toDate' in member.joinedAt)
-                              ? (member.joinedAt as any).toDate()
-                              : member.joinedAt
+                          typeof member.joinedAt === "string"
+                            ? member.joinedAt
+                            : member.joinedAt &&
+                              typeof member.joinedAt === "object" &&
+                              "toDate" in member.joinedAt
+                            ? (member.joinedAt as any).toDate()
+                            : member.joinedAt
                         ).toLocaleDateString()}
                       </p>
                     </div>

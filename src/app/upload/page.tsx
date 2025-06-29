@@ -54,7 +54,7 @@ export default function UploadPage() {
             ...doc.data(),
           }));
           setAlbums(albumsData);
-        } catch (error) {
+        } catch (error: unknown) {
           console.error("Error fetching albums:", error);
         }
       }
@@ -177,7 +177,7 @@ export default function UploadPage() {
 
       // Redirect to dashboard
       router.push("/dashboard");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Upload error:", error);
       setError("Failed to upload photos. Please try again.");
     } finally {

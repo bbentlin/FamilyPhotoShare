@@ -19,16 +19,7 @@ import { use } from "react";
 import SetCoverPhotoModal from "@/components/SetCoverPhotoModal";
 import PhotoModal from "@/components/PhotoModal";
 import ThemeToggle from "@/components/ThemeToggle";
-
-interface Album {
-  id: string;
-  title: string;
-  description?: string;
-  coverPhoto?: string;
-  isPublic: boolean;
-  createdByName: string;
-  [key: string]: any;
-}
+import { Photo, Album } from "@/types";
 
 export default function AlbumPage({
   params,
@@ -38,14 +29,12 @@ export default function AlbumPage({
   const { user } = useAuth();
   const router = useRouter();
   const [album, setAlbum] = useState<Album | null>(null);
-  const [photos, setPhotos] = useState<
-    Array<{ id: string; url?: string; title?: string; [key: string]: any }>
-  >([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSetCoverModal, setShowSetCoverModal] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
 
@@ -81,9 +70,9 @@ export default function AlbumPage({
         const photosData = photoSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-        }));
+        })) as Photo[];
         setPhotos(photosData);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error("Error fetching album:", error);
         router.push("/albums");
       } finally {
@@ -115,7 +104,7 @@ export default function AlbumPage({
 
       // Redirect to albums page
       router.push("/albums");
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error deleting album:", error);
       alert("Failed to delete album. Please try again.");
     } finally {
@@ -137,7 +126,7 @@ export default function AlbumPage({
       });
 
       setAlbum((prev) => (prev ? { ...prev, coverPhoto: photoUrl } : null));
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error updating cover photo:", error);
       alert("Failed to update cover photo. Please try again.");
     }
@@ -478,17 +467,10 @@ export default function AlbumPage({
       {showSetCoverModal && (
         <SetCoverPhotoModal
           album={album}
-          photos={
-            photos.filter((photo) => photo.url) as Array<{
-              id: string;
-              url: string;
-              title?: string;
-              [key: string]: any;
-            }>
-          }
+          photos={photos.filter((photo) => photo.url)}
           isOpen={showSetCoverModal}
           onClose={() => setShowSetCoverModal(false)}
-          onSuccess={handleCoverPhotoUpdate}
+          onPhotoSelected={handleCoverPhotoUpdate}
         />
       )}
 
