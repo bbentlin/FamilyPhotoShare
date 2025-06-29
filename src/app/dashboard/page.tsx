@@ -33,7 +33,7 @@ function SortablePhoto({
   onClick,
   onAddToAlbum,
 }: {
-  photo: any;
+  photo: Photo;
   onClick: () => void;
   onAddToAlbum?: () => void;
 }) {
@@ -159,7 +159,7 @@ function PhotoModal({
   hasNext,
   onAddToAlbum,
 }: {
-  photo: any;
+  photo: Photo;
   onClose: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -296,12 +296,12 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal state
-  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
 
   // Add these state variables after your existing state declarations
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
-  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<any>(null);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<Photo | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -396,7 +396,7 @@ export default function Dashboard() {
   };
 
   // Photo modal funcions
-  const openPhotoModal = (photo: any, index: number) => {
+  const openPhotoModal = (photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
   };
@@ -422,7 +422,7 @@ export default function Dashboard() {
   };
 
   // Add these functions after your existing photo modal functions
-  const openAddToAlbumModal = (photo: any) => {
+  const openAddToAlbumModal = (photo: Photo) => {
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
   };

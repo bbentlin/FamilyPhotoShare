@@ -5,6 +5,7 @@ export interface Photo {
   url: string;
   title?: string;
   description?: string;
+  uploadedByName?: string;
   createdAt: Timestamp | Date;
   createdBy: string;
   albums?: string[];
