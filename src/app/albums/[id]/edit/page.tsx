@@ -16,6 +16,8 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import { use } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
 interface Album {
   id: string;
   title: string;
@@ -141,11 +143,8 @@ export default function EditAlbumPage({
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading album...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner message="Loading album..." />
       </div>
     );
   }

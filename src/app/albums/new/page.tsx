@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function NewAlbumPage() {
   const { user } = useAuth();
@@ -239,12 +240,7 @@ export default function NewAlbumPage() {
               </p>
 
               {isLoadingPhotos ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                  <p className="text-sm text-gray-600">
-                    Loading your photos...
-                  </p>
-                </div>
+                <LoadingSpinner message="Loading your photos..." />
               ) : photos.length > 0 ? (
                 <>
                   {/* No Cover Option */}

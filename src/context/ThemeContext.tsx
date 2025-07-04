@@ -48,22 +48,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return newQuery.matches ? "dark" : "light";
   }, []);
 
-  // Update your getSystemTheme function
+  // Simplify the theme detection for Safari
   const getSystemTheme = useCallback((): "light" | "dark" => {
     if (typeof window === "undefined") return "light";
 
-    const isChrome = navigator.userAgent.includes("Chrome");
-
-    if (isChrome) {
-      // Force refresh for Chrome
-      const freshResult = forceChromethemeRefresh();
-      if (freshResult) return freshResult;
-    }
-
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  }, [forceChromethemeRefresh]);
+    // Simple Safari-compatible detection
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    return mediaQuery.matches ? "dark" : "light";
+  }, []);
 
   // Load theme from localStorage on mount
   useEffect(() => {
@@ -179,22 +171,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
   }, [theme, mounted, updateEffectiveTheme, getSystemTheme]);
 
-  // Apply theme to document with Chrome-specific handling
+  // Simplify the useEffect for theme application
   useEffect(() => {
     if (!mounted) return;
 
     const root = document.documentElement;
-    const body = document.body;
-
-    console.log("Applying theme to DOM:", effectiveTheme);
 
     // Remove existing classes
     root.classList.remove("light", "dark");
-    body.classList.remove("light", "dark");
 
     // Add new class
     root.classList.add(effectiveTheme);
-    body.classList.add(effectiveTheme);
 
     // Set CSS property
     root.style.setProperty("color-scheme", effectiveTheme);

@@ -68,3 +68,53 @@ button:disabled,
 [aria-disabled="true"] {
   cursor: not-allowed;
 }
+
+/* Better Safari performance optimizations */
+.photo-grid {
+  contain: layout style paint;
+}
+
+.photo-item {
+  will-change: transform;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize hover effects for Safari */
+.group:hover .group-hover\:scale-105 {
+  transform: scale(1.05);
+  transition: transform 0.2s ease-out;
+}
+
+/* Better scrolling performance */
+.overflow-auto {
+  overflow-scrolling: touch; /* iOS Safari */
+  scroll-behavior: smooth;
+}
+
+/* Optimize image loading */
+img {
+  content-visibility: auto;
+  contain-intrinsic-size: 300px 200px;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .group-hover\:scale-105 {
+    transform: none !important;
+  }
+}
+
+/* Focus improvements */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+

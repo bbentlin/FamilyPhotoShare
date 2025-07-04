@@ -20,6 +20,7 @@ import SetCoverPhotoModal from "@/components/SetCoverPhotoModal";
 import PhotoModal from "@/components/PhotoModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function AlbumPage({
   params,
@@ -163,10 +164,7 @@ export default function AlbumPage({
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading album...</p>
-        </div>
+        <LoadingSpinner message="Loading album..." />
       </div>
     );
   }

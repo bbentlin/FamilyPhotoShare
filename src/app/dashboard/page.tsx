@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo, lazy, Suspense, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -23,12 +23,16 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+// Lazy load modals
+const PhotoModal = lazy(() => import("@/components/PhotoModal"));
+const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
 // Sortable Photo Component
-function SortablePhoto({
+const SortablePhoto = memo(function SortablePhoto({
   photo,
   onClick,
   onAddToAlbum,
@@ -147,143 +151,19 @@ function SortablePhoto({
       </div>
     </div>
   );
-}
+});
 
-// Photo Modal Component
-function PhotoModal({
-  photo,
-  onClose,
-  onPrevious,
-  onNext,
-  hasPrevious,
-  hasNext,
-  onAddToAlbum,
-}: {
-  photo: Photo;
-  onClose: () => void;
-  onPrevious: () => void;
-  onNext: () => void;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  onAddToAlbum?: () => void;
-}) {
-  // Close modal on escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft" && hasPrevious) onPrevious();
-      if (e.key === "ArrowRight" && hasNext) onNext();
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
     };
-
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [onClose, onPrevious, onNext, hasPrevious, hasNext]);
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 dark:bg-black dark:bg-opacity-95 flex items-center justify-center z-50">
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-      >
-        <svg
-          className="h-8 w-8"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-
-      {/* Previous button */}
-      {hasPrevious && (
-        <button
-          onClick={onPrevious}
-          className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-        >
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-      )}
-
-      {/* Next button */}
-      {hasNext && (
-        <button
-          onClick={onNext}
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-        >
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
-          </svg>
-        </button>
-      )}
-
-      {/* Add to Album button */}
-      {onAddToAlbum && (
-        <button
-          onClick={onAddToAlbum}
-          className="absolute top-4 left-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm transition-colors z-10"
-        >
-          Add to Album
-        </button>
-      )}
-
-      {/* Photo */}
-      <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
-        <img
-          src={photo.url}
-          alt={photo.title || "Photo"}
-          className="max-w-full max-h-[80vh] object-contain rounded-lg"
-        />
-
-        {/* Photo info */}
-        <div className="text-center mt-4">
-          <h3 className="text-white text-lg font-semibold">
-            {photo.title || "Untitled Photo"}
-          </h3>
-          {photo.description && (
-            <p className="text-gray-300 dark:text-gray-200 text-sm mt-2">
-              {photo.description}
-            </p>
-          )}
-          <p className="text-gray-400 dark:text-gray-300 text-sm mt-1">
-            Uploaded by {photo.uploadedByName || "Unknown"}
-          </p>
-        </div>
-      </div>
-
-      {/* Click outside to close */}
-      <div className="absolute inset-0 -z-10" onClick={onClose} />
-    </div>
-  );
-}
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 export default function Dashboard() {
   const { user, loading, logout } = useAuth();
@@ -301,7 +181,8 @@ export default function Dashboard() {
 
   // Add these state variables after your existing state declarations
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
-  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] = useState<Photo | null>(null);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
+    useState<Photo | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -319,47 +200,72 @@ export default function Dashboard() {
   }, [user, loading, router]);
 
   // Fetch data from Firestore
+  const debouncedFetchData = useCallback(
+    debounce(async () => {
+      if (!user || !db) return;
+
+      try {
+        const [photoSnapshot, albumSnapshot] = await Promise.all([
+          getDocs(
+            query(
+              collection(db, "photos"),
+              orderBy("createdAt", "desc"),
+              limit(6)
+            )
+          ),
+          getDocs(
+            query(
+              collection(db, "albums"),
+              orderBy("updatedAt", "desc"),
+              limit(4)
+            )
+          ),
+        ]);
+
+        setRecentPhotos(
+          photoSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Photo[]
+        );
+        setAlbums(
+          albumSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Album[]
+        );
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300),
+    [user, db]
+  );
+
   useEffect(() => {
+    let isMounted = true;
+
     async function fetchData() {
-      if (user) {
-        try {
-          // Fetch recent photos
-          const photosQuery = query(
-            collection(db, "photos"),
-            orderBy("createdAt", "desc"),
-            limit(6) // Increased to 6 for better grid
-          );
-          const photoSnapshot = await getDocs(photosQuery);
-          const photosData = photoSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Photo[];
-          setRecentPhotos(photosData);
+      if (!user) return;
 
-          // Fetch albums
-          const albumsQuery = query(
-            collection(db, "albums"),
-            orderBy("updatedAt", "desc"),
-            limit(4) // Increased to 4
-          );
-          const albumSnapshot = await getDocs(albumsQuery);
-          const albumsData = albumSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Album[];
-          setAlbums(albumsData);
+      try {
+        setIsLoading(true);
 
-          // Fetch family members
-          const membersQuery = query(collection(db, "familyMembers"), limit(8));
-          const membersSnapshot = await getDocs(membersQuery);
-          const membersData = membersSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setFamilyMembers(membersData);
-        } catch (error: unknown) {
-          console.error("Error fetching data:", error);
-        } finally {
+        // Fetch data with timeout
+        await Promise.race([
+          debouncedFetchData(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 10000)
+          ),
+        ]);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        // Set empty arrays instead of hanging
+        setRecentPhotos([]);
+        setAlbums([]);
+      } finally {
+        if (isMounted) {
           setIsLoading(false);
         }
       }
@@ -368,7 +274,11 @@ export default function Dashboard() {
     if (user && !loading) {
       fetchData();
     }
-  }, [user, loading]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, loading, debouncedFetchData]);
 
   // Handle drag end for photo reordering
   const handleDragEnd = async (event: any) => {
@@ -441,12 +351,7 @@ export default function Dashboard() {
   if (loading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">
-            Loading your photos...
-          </p>
-        </div>
+        <LoadingSpinner message="Loading your photos..." />
       </div>
     );
   }
@@ -874,15 +779,17 @@ export default function Dashboard() {
 
       {/* Photo Modal */}
       {selectedPhoto && (
-        <PhotoModal
-          photo={selectedPhoto}
-          onClose={closePhotoModal}
-          onPrevious={goToPreviousPhoto}
-          onNext={goToNextPhoto}
-          hasPrevious={selectedPhotoIndex > 0}
-          hasNext={selectedPhotoIndex < recentPhotos.length - 1}
-          onAddToAlbum={() => openAddToAlbumModal(selectedPhoto)}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <PhotoModal
+            photo={selectedPhoto}
+            isOpen={true}
+            onClose={closePhotoModal}
+            onPrevious={goToPreviousPhoto}
+            onNext={goToNextPhoto}
+            hasPrevious={selectedPhotoIndex > 0}
+            hasNext={selectedPhotoIndex < recentPhotos.length - 1}
+          />
+        </Suspense>
       )}
 
       {/* Add to Album Modal */}

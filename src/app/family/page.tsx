@@ -8,6 +8,7 @@ import { collection, getDocs, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
 import { FamilyMember } from "@/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function FamilyPage() {
   const { user, loading } = useAuth();
@@ -48,10 +49,7 @@ export default function FamilyPage() {
   if (loading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading family...</p>
-        </div>
+        <LoadingSpinner message="Loading family..." />
       </div>
     );
   }

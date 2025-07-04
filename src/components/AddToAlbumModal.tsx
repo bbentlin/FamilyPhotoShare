@@ -14,6 +14,8 @@ import {
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Photo, Album } from "@/types";
+import LoadingSpinner from "./LoadingSpinner";
+
 
 interface AddToAlbumModalProps {
   photo: Photo;
@@ -248,10 +250,7 @@ export default function AddToAlbumModal({
           /* Existing Album Selection */
           <>
             {isLoading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-sm text-gray-600">Loading albums...</p>
-              </div>
+              <LoadingSpinner message="Loading albums..." />
             ) : (
               <>
                 {/* Create New Album Option */}

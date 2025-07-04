@@ -16,6 +16,7 @@ import { storage, db } from "@/lib/firebase";
 import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface PhotoFile {
   file: File;
@@ -430,22 +431,17 @@ export default function UploadPage() {
               {/* Upload Progress */}
               {isUploading && (
                 <div className="mt-4">
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <LoadingSpinner message="Uploading photos..." />
+                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{
                         width: `${
-                          Object.values(uploadProgress).reduce(
-                            (a, b) => a + b,
-                            0
-                          ) / selectedFiles.length
+                          Object.values(uploadProgress).reduce((a, b) => a + b, 0) / selectedFiles.length
                         }%`,
                       }}
                     ></div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Uploading photos...
-                  </p>
                 </div>
               )}
             </div>
