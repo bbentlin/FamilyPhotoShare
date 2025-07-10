@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
+import Image from "next/image";
 
 interface Invitation {
   id: string;
@@ -319,10 +320,13 @@ export default function InvitePanel() {
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
                       {member.photoUrl ? (
-                        <img
+                        <Image 
                           src={member.photoUrl}
-                          alt={member.name}
-                          className="w-full h-full rounded-full object-cover"
+                          alt={member.name || member.email || "Member"}
+                          fill
+                          className="rounded-full object-cover"
+                          loading="lazy"
+                          quality={75}
                         />
                       ) : (
                         <span className="text-blue-600 dark:text-blue-400 font-medium">

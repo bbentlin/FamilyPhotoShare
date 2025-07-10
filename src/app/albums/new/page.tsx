@@ -16,6 +16,7 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Image from "next/image";
 
 export default function NewAlbumPage() {
   const { user } = useAuth();
@@ -296,10 +297,14 @@ export default function NewAlbumPage() {
                           !isCreating && setSelectedCoverPhoto(photo.url)
                         }
                       >
-                        <img
+                        <Image 
                           src={photo.url}
                           alt={photo.title || "Photo"}
-                          className="w-full h-full object-cover"
+                          fill
+                          sizes="100px"
+                          className="object-cover"
+                          loading="lazy"
+                          quality={75}
                         />
 
                         {/* Selection indicator */}
@@ -387,10 +392,13 @@ export default function NewAlbumPage() {
               <div className="flex items-center p-4 bg-white rounded-lg border border-gray-200">
                 <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center mr-4 overflow-hidden">
                   {selectedCoverPhoto ? (
-                    <img
+                    <Image 
                       src={selectedCoverPhoto}
                       alt="Cover preview"
-                      className="w-full h-full object-cover"
+                      width={64}
+                      height={64}
+                      className="object-cover rounded-lg"
+                      loading="lazy"
                     />
                   ) : (
                     <svg

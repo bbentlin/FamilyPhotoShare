@@ -56,15 +56,19 @@ const SortablePhoto = memo(function SortablePhoto({
       className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
     >
       {photo.url ? (
-        <img
+        <Image 
           src={photo.url}
           alt={photo.title || "Photo"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
             console.log("Photo clicked:", photo.title);
             onClick();
           }}
+          loading="lazy"
+          quality={75}
         />
       ) : (
         <div
@@ -649,10 +653,13 @@ export default function Dashboard() {
                     >
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-600 mr-3">
                         {album.coverPhoto ? (
-                          <img
+                          <Image 
                             src={album.coverPhoto}
                             alt={album.title}
-                            className="w-full h-full object-cover"
+                            width={48}
+                            height={48}
+                            className="object-cover rounded"
+                            loading="lazy"
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
@@ -717,10 +724,13 @@ export default function Dashboard() {
                   <div key={member.id} className="flex flex-col items-center">
                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 mb-2 flex items-center justify-center">
                       {member.photoUrl ? (
-                        <img
+                        <Image 
                           src={member.photoUrl}
                           alt={member.name}
-                          className="w-full h-full rounded-full object-cover"
+                          width={40}
+                          height={40}
+                          className="rounded-full object-cover"
+                          loading="lazy"
                         />
                       ) : (
                         <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">

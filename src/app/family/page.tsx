@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
 import { FamilyMember } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Image from "next/image";
 
 export default function FamilyPage() {
   const { user, loading } = useAuth();
@@ -125,10 +126,13 @@ export default function FamilyPage() {
                   <div className="flex items-center">
                     <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-4">
                       {member.photoUrl ? (
-                        <img
+                        <Image 
                           src={member.photoUrl}
                           alt={member.name}
-                          className="w-full h-full rounded-full object-cover"
+                          fill
+                          className="rounded-full object-cover"
+                          loading="lazy"
+                          quality={75}
                         />
                       ) : (
                         <span className="text-blue-600 dark:text-blue-400 font-semibold text-lg">

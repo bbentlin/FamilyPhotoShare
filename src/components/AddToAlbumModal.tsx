@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "./LoadingSpinner";
+import Image from "next/image";
 
 
 interface AddToAlbumModalProps {
@@ -147,11 +148,16 @@ export default function AddToAlbumModal({
 
         {/* Photo Preview */}
         <div className="flex items-center mb-4 p-3 bg-gray-50 rounded-lg">
-          <img
-            src={photo.url}
-            alt={photo.title || "Photo"}
-            className="w-16 h-16 object-cover rounded-lg mr-3"
-          />
+          <div className="relative w-16 h-16 mr-3 flex-shrink-0">
+            <Image 
+              src={photo.url}
+              alt={photo.title || "Photo"}
+              fill
+              className="object-cover rounded"
+              loading="lazy"
+              quality={75}
+            />
+          </div>
           <div>
             <p className="font-medium text-gray-900">
               {photo.title || "Untitled Photo"}

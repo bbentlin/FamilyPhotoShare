@@ -21,6 +21,7 @@ import PhotoModal from "@/components/PhotoModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import Image from "next/image";
 
 export default function AlbumPage({
   params,
@@ -257,10 +258,13 @@ export default function AlbumPage({
             {/* Cover Photo Preview */}
             {album.coverPhoto && (
               <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
-                <img
+                <Image 
                   src={album.coverPhoto}
                   alt={`${album.title} cover`}
-                  className="w-full h-full object-cover"
+                  width={128}
+                  height={96}
+                  className="object-cover rounded-lg"
+                  loading="lazy"
                 />
               </div>
             )}
@@ -312,10 +316,14 @@ export default function AlbumPage({
                   }}
                 >
                   {photo.url ? (
-                    <img
+                    <Image 
                       src={photo.url}
                       alt={photo.title || "Photo"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      fill
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                      quality={75}
                     />
                   ) : (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">

@@ -25,6 +25,7 @@ import { CSS } from "@dnd-kit/utilities";
 import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo } from "@/types";
+import Image from "next/image";
 
 export default function PhotosPage() {
   const { user } = useAuth();
@@ -252,10 +253,14 @@ export default function PhotosPage() {
 
         {/* Photo */}
         <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
-          <img
+          <Image 
             src={photo.url}
             alt={photo.title || "Photo"}
+            width={800}
+            height={600}
             className="max-w-full max-h-[80vh] object-contain rounded-lg"
+            loading="eager"
+            quality={90}
           />
 
           {/* Photo info */}
@@ -303,15 +308,19 @@ export default function PhotosPage() {
         className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
       >
         {photo.url ? (
-          <img
+          <Image 
             src={photo.url}
             alt={photo.title || "Photo"}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+            fill
+            sizes="(max-width: 768ppx) 50vw, (max-width: 1200px) 33vw, 25vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               console.log("Photo clicked:", photo.title);
               onClick();
             }}
+            loading="lazy"
+            quality={75}
           />
         ) : (
           <div

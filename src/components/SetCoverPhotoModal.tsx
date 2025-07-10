@@ -4,6 +4,7 @@ import { useState } from "react";
 import { doc, updateDoc } from "@firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Photo, Album } from "@/types";
+import Image from "next/image";
 
 interface SetCoverPhotoModalProps {
   album: Album;
@@ -127,10 +128,14 @@ export default function SetCoverPhotoModal({
                   }`}
                   onClick={() => handlePhotoSelect(photo)}
                 >
-                  <img
+                  <Image 
                     src={photo.url}
                     alt={photo.title || "Photo"}
-                    className="w-full h-full object-cover"
+                    fill
+                    sizes="150px"
+                    className="object-cover"
+                    loading="lazy"
+                    quality={75}
                   />
 
                   {/* Selection indicator */}
