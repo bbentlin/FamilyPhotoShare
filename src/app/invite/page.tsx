@@ -323,8 +323,9 @@ export default function InvitePanel() {
                         <Image 
                           src={member.photoUrl}
                           alt={member.name || member.email || "Member"}
-                          fill
-                          className="rounded-full object-cover"
+                          width={40}
+                          height={40}
+                          className="w-full h-full rounded-full object-cover"
                           loading="lazy"
                           quality={75}
                         />

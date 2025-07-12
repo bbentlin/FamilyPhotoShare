@@ -129,8 +129,9 @@ export default function FamilyPage() {
                         <Image 
                           src={member.photoUrl}
                           alt={member.name}
-                          fill
-                          className="rounded-full object-cover"
+                          width={48}
+                          height={48}
+                          className="w-full h-full rounded-full object-cover"
                           loading="lazy"
                           quality={75}
                         />

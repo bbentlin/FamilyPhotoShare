@@ -131,9 +131,9 @@ export default function SetCoverPhotoModal({
                   <Image 
                     src={photo.url}
                     alt={photo.title || "Photo"}
-                    fill
-                    sizes="150px"
-                    className="object-cover"
+                    width={150}
+                    height={150}
+                    className="w-full h-full object-cover"
                     loading="lazy"
                     quality={75}
                   />

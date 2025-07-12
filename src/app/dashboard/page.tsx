@@ -59,14 +59,10 @@ const SortablePhoto = memo(function SortablePhoto({
         <Image 
           src={photo.url}
           alt={photo.title || "Photo"}
-          fill
-          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          className="object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            console.log("Photo clicked:", photo.title);
-            onClick();
-          }}
+          width={300}
+          height={300}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+          onClick={onClick}
           loading="lazy"
           quality={75}
         />

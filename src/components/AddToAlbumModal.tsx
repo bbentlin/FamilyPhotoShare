@@ -152,8 +152,9 @@ export default function AddToAlbumModal({
             <Image 
               src={photo.url}
               alt={photo.title || "Photo"}
-              fill
-              className="object-cover rounded"
+              width={64}
+              height={64}
+              className="w-full h-full object-cover rounded"
               loading="lazy"
               quality={75}
             />

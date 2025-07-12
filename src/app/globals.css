@@ -118,3 +118,43 @@ a:focus-visible {
   outline-offset: 2px;
 }
 
+/* iOS Safari Image Fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari only */
+  .aspect-square {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+  }
+  
+  .aspect-square::before {
+    content: '';
+    display: block;
+    padding-top: 100%;
+  }
+  
+  .aspect-square > * {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+}
+
+/* Force hardware acceleration on iOS */
+.group img,
+.group Image {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Fix image rendering on iOS */
+img,
+Image {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+

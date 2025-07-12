@@ -311,14 +311,10 @@ export default function PhotosPage() {
           <Image 
             src={photo.url}
             alt={photo.title || "Photo"}
-            fill
-            sizes="(max-width: 768ppx) 50vw, (max-width: 1200px) 33vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              console.log("Photo clicked:", photo.title);
-              onClick();
-            }}
+            width={250}
+            height={250}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            onClick={onClick}
             loading="lazy"
             quality={75}
           />

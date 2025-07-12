@@ -300,9 +300,9 @@ export default function NewAlbumPage() {
                         <Image 
                           src={photo.url}
                           alt={photo.title || "Photo"}
-                          fill
-                          sizes="100px"
-                          className="object-cover"
+                          width={100}
+                          height={100}
+                          className="w-full h-full object-cover"
                           loading="lazy"
                           quality={75}
                         />

@@ -319,9 +319,9 @@ export default function AlbumPage({
                     <Image 
                       src={photo.url}
                       alt={photo.title || "Photo"}
-                      fill
-                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                      className="object-cover group-hover:scale-105 transition-transform duration-200"
+                      width={250}
+                      height={250}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       loading="lazy"
                       quality={75}
                     />
