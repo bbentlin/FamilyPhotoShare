@@ -48,7 +48,7 @@ export default function HomePage() {
                   src="/familylogo.png"
                   alt="Family logo"
                   fill
-                  sizes="80px"
+                  sizes="120px"
                   className="object-contain"
                 />
               </div>
