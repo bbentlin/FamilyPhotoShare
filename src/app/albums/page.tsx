@@ -63,47 +63,6 @@ export default function AlbumsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard" className="flex items-center gap-2">
-                <svg
-                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-                <span className="text-gray-500 dark:text-gray-400">
-                  Back to Dashboard
-                </span>
-              </Link>
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                Albums
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <Link
-                href="/albums/new"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Create Album
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

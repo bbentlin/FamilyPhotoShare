@@ -413,29 +413,6 @@ export default function PhotosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                FPS
-              </span>
-            </Link>
-
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <Link
-                href="/upload"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Upload Photos
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
