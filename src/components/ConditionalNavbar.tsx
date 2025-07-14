@@ -9,8 +9,10 @@ export default function ConditionalNavbar() {
   const isUpload = pathname?.startsWith("/upload");
   const isAlbums = pathname?.startsWith("/albums");
   const isPhotos = pathname?.startsWith("/photos");
+  const isLogin = pathname?.startsWith("/login");
+  const isSignup = pathname?.startsWith("/signup");
 
-  if (isDashboard || isUpload || isAlbums || isPhotos) {
+  if (isDashboard || isUpload || isAlbums || isPhotos || isLogin || isSignup) {
     return null;
   }
 
