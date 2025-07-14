@@ -5,14 +5,10 @@ import Navbar from "./Navbar";
 
 export default function ConditionalNavbar() {
   const pathname = usePathname();
-  const isDashboard = pathname.startsWith("/dashboard");
-  const isUpload = pathname?.startsWith("/upload");
-  const isAlbums = pathname?.startsWith("/albums");
-  const isPhotos = pathname?.startsWith("/photos");
-  const isLogin = pathname?.startsWith("/login");
-  const isSignup = pathname?.startsWith("/signup");
+  
+  const noNavbarPages = ['/', '/login', '/signup'];
 
-  if (isDashboard || isUpload || isAlbums || isPhotos || isLogin || isSignup) {
+  if (noNavbarPages.includes(pathname)) {
     return null;
   }
 
