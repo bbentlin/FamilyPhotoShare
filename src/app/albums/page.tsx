@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 
 export default function AlbumsPage() {
   const { user, loading } = useAuth();
@@ -126,14 +126,11 @@ export default function AlbumsPage() {
                 {/* Album Cover */}
                 <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative">
                   {album.coverPhoto ? (
-                    <Image 
-                     src={album.coverPhoto}
-                     alt={album.title}
-                     width={300}
-                     height={300}
-                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                     loading="lazy"
-                     quality={75}
+                    <SafeImage
+                      src={album.coverPhoto}
+                      alt={album.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">

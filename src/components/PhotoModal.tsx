@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Photo } from "@/types";
-import Image from "next/image";
-
+import SafeImage from "./SafeImage";
 interface PhotoModalProps {
   photo: Photo; 
   isOpen: boolean;
@@ -147,19 +146,13 @@ export default function PhotoModal({
           )}
 
           {/* Main Image */}
-          <Image 
+          <SafeImage 
             src={photo.url}
             alt={photo.title || "Photo"}
-            width={1200}
-            height={800}
-            className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
-              isImageLoaded ? "opacity-100" : "opacity-0"
-            }`}
+            className={`max-w-full max-h-full object-contain transition-opacity duration-300`}
             onLoad={() => setIsImageLoaded(true)}
             onError={() => setIsImageLoaded(true)}
             loading="eager"
-            quality={90}
-            priority
           />
         </div>
 

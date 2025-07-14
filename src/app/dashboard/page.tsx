@@ -26,6 +26,7 @@ import { CSS } from "@dnd-kit/utilities";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import SafeImage from "@/components/SafeImage";
 
 // Lazy load modals
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
@@ -56,15 +57,16 @@ const SortablePhoto = memo(function SortablePhoto({
       className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
     >
       {photo.url ? (
-        <Image 
+        <SafeImage
           src={photo.url}
           alt={photo.title || "Photo"}
-          width={300}
-          height={300}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-          onClick={onClick}
+          onClick={(e) => {
+            e?.stopPropagation();
+            console.log("Photo clicked:", photo.title);
+            onClick();
+          }} 
           loading="lazy"
-          quality={75}
         />
       ) : (
         <div
@@ -649,12 +651,10 @@ export default function Dashboard() {
                     >
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-600 mr-3">
                         {album.coverPhoto ? (
-                          <Image 
+                          <SafeImage 
                             src={album.coverPhoto}
                             alt={album.title}
-                            width={48}
-                            height={48}
-                            className="object-cover rounded"
+                            className="w-12 h-12 object-cover rounded"
                             loading="lazy"
                           />
                         ) : (
@@ -720,12 +720,10 @@ export default function Dashboard() {
                   <div key={member.id} className="flex flex-col items-center">
                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 mb-2 flex items-center justify-center">
                       {member.photoUrl ? (
-                        <Image 
+                        <SafeImage 
                           src={member.photoUrl}
                           alt={member.name}
-                          width={40}
-                          height={40}
-                          className="rounded-full object-cover"
+                          className="w-10 h-10 rounded-full object-cover"
                           loading="lazy"
                         />
                       ) : (

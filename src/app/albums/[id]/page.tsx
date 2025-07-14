@@ -21,7 +21,7 @@ import PhotoModal from "@/components/PhotoModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 
 export default function AlbumPage({
   params,
@@ -258,12 +258,10 @@ export default function AlbumPage({
             {/* Cover Photo Preview */}
             {album.coverPhoto && (
               <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
-                <Image 
+                <SafeImage
                   src={album.coverPhoto}
                   alt={`${album.title} cover`}
-                  width={128}
-                  height={96}
-                  className="object-cover rounded-lg"
+                  className="w-32 h-24 object-cover rounded-lg"
                   loading="lazy"
                 />
               </div>
@@ -316,15 +314,12 @@ export default function AlbumPage({
                   }}
                 >
                   {photo.url ? (
-                    <Image 
+                    <SafeImage 
                       src={photo.url}
                       alt={photo.title || "Photo"}
-                      width={250}
-                      height={250}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       loading="lazy"
-                      quality={75}
-                    />
+                    /> 
                   ) : (
                     <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
                       <svg

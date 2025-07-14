@@ -13,10 +13,10 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
-import Image from "next/image";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import SafeImage from "@/components/SafeImage";
 
 interface PhotoFile {
   file: File;
@@ -39,6 +39,15 @@ export default function UploadPage() {
     Array<{ id: string; [key: string]: any }>
   >([]);
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <LoadingSpinner />;
+  }
 
   // Fetch albums
   useEffect(() => {
@@ -320,11 +329,10 @@ export default function UploadPage() {
                     className="border border-gray-200 rounded-lg overflow-hidden"
                   >
                     <div className="relative h-48">
-                      <Image
+                      <SafeImage 
                         src={photoFile.preview}
                         alt="Preview"
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                       />
                       <button
                         onClick={() => removeFile(index)}

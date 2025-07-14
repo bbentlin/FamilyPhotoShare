@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   collection,
@@ -16,7 +16,7 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 
 export default function NewAlbumPage() {
   const { user } = useAuth();
@@ -35,6 +35,12 @@ export default function NewAlbumPage() {
   >([]);
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState("");
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(true);
+
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -121,6 +127,10 @@ export default function NewAlbumPage() {
   if (!user) {
     router.push("/login");
     return null;
+  }
+
+  if (!isMounted) {
+    return <LoadingSpinner />;
   }
 
   return (
@@ -297,14 +307,11 @@ export default function NewAlbumPage() {
                           !isCreating && setSelectedCoverPhoto(photo.url)
                         }
                       >
-                        <Image 
+                        <SafeImage
                           src={photo.url}
                           alt={photo.title || "Photo"}
-                          width={100}
-                          height={100}
                           className="w-full h-full object-cover"
                           loading="lazy"
-                          quality={75}
                         />
 
                         {/* Selection indicator */}
@@ -392,12 +399,10 @@ export default function NewAlbumPage() {
               <div className="flex items-center p-4 bg-white rounded-lg border border-gray-200">
                 <div className="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center mr-4 overflow-hidden">
                   {selectedCoverPhoto ? (
-                    <Image 
+                    <SafeImage
                       src={selectedCoverPhoto}
                       alt="Cover preview"
-                      width={64}
-                      height={64}
-                      className="object-cover rounded-lg"
+                      className="w-16 h-16 object-cover rounded-lg"
                       loading="lazy"
                     />
                   ) : (

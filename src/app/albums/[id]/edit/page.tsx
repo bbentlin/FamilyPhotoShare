@@ -17,7 +17,7 @@ import Link from "next/link";
 import { use } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 
 interface Album {
   id: string;
@@ -344,14 +344,11 @@ export default function EditAlbumPage({
                           !isUpdating && setSelectedCoverPhoto(photo.url)
                         }
                       >
-                        <Image 
+                        <SafeImage
                           src={photo.url}
                           alt={photo.title || "Photo"}
-                          width={120}
-                          height={120}
                           className="w-full h-full object-cover"
-                          loading="lazy"
-                          quality={75}
+                          loading="lazy" 
                         />
 
                         {/* Selection Indicator */}
