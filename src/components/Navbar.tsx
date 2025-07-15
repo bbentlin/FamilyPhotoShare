@@ -31,17 +31,17 @@ export default function Navbar() {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center gap-2">
-                <div className="relative h-10 w-10">
+                <div className="relative h-12 w-12">
                   <Image
                     src="/familylogo.png"
                     alt="Family logo"
                     fill
-                    sizes="40px"
+                    sizes="48px"
                     className="object-contain"
                   />
                 </div>
                 <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                  FPS
+                  Family Photo Share
                 </span>
               </Link>
             </div>

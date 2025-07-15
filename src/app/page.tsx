@@ -43,12 +43,12 @@ export default function HomePage() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="relative h-10 w-10">
+              <div className="relative h-15 w-15">
                 <Image
                   src="/familylogo.png"
                   alt="Family logo"
                   fill
-                  sizes="120px"
+                  sizes="80px"
                   className="object-contain"
                 />
               </div>
