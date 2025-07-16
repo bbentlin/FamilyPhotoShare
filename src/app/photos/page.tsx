@@ -301,7 +301,10 @@ export default function PhotosPage() {
     return (
       <div
         ref={setNodeRef}
-        style={style}
+        style={{
+          ...style,
+          touchAction: 'manipulation',
+        }}
         className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100"
       >
         {photo.url ? (
@@ -310,6 +313,7 @@ export default function PhotosPage() {
             alt={photo.title || "Photo"}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
             onClick={(e) => {
+              e?.preventDefault();
               e?.stopPropagation();
               onClick();
             }} 

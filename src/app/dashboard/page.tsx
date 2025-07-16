@@ -53,8 +53,11 @@ const SortablePhoto = memo(function SortablePhoto({
   return (
     <div
       ref={setNodeRef}
-      style={style}
       className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
+      style={{
+        ...style,
+        touchAction: 'manipulation',
+      }}
     >
       {photo.url ? (
         <SafeImage
@@ -62,6 +65,7 @@ const SortablePhoto = memo(function SortablePhoto({
           alt={photo.title || "Photo"}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
           onClick={(e) => {
+            e?.preventDefault();
             e?.stopPropagation();
             console.log("Photo clicked:", photo.title);
             onClick();

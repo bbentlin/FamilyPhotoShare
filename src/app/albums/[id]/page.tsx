@@ -214,7 +214,7 @@ export default function AlbumPage({
                 </span>
               </Link>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                FPS
+                Family Photo Share
               </span>
             </div>
 
@@ -305,8 +305,15 @@ export default function AlbumPage({
                 <div
                   key={photo.id}
                   className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
+                  style={{ touchAction: 'manipulation' }}
                   onClick={(e) => {
                     // Only open modal if we're not clicking on the cover button
+                    const target = e.target as HTMLElement;
+                    if (!target.closest("button")) {
+                      openPhotoModal(photo, index);
+                    }
+                  }}
+                  onTouchEnd={(e) => {
                     const target = e.target as HTMLElement;
                     if (!target.closest("button")) {
                       openPhotoModal(photo, index);

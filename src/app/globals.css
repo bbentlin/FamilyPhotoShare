@@ -158,3 +158,35 @@ Image {
   image-rendering: crisp-edges;
 }
 
+.photo-grid img,
+.photo-grid button {
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.photo-container {
+  touch-action: manipulation;
+}
+
+@media (max-width: 768px) {
+  .photo-grid button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+.photo-touchable {
+  touch-action: manipulation;
+  user-select: none;
+  outline: none;
+}
+
+.photo-touchable:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.photo-touchable:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+

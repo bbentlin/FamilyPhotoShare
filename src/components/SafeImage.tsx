@@ -6,7 +6,7 @@ interface SafeImageProps {
   src: string;
   alt: string;
   className?: string;
-  onClick?: (e?: React.MouseEvent) => void;
+  onClick?: (e?: React.MouseEvent | React.TouchEvent) => void;
   loading?: "lazy" | "eager";
   quality?: number;
   priority?: boolean;
@@ -38,8 +38,18 @@ export default function SafeImage({
     onError?.();
   };
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     if (onClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick(e);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (onClick) {
+      e.preventDefault();
+      e.stopPropagation();
       onClick(e);
     }
   };
@@ -49,6 +59,8 @@ export default function SafeImage({
       <div 
         className={`bg-gray-200 dark:bg-gray-700 flex items-center justify-center ${className}`}
         onClick={onClick ? handleClick : undefined}
+        onTouchEnd={onClick ? handleTouchEnd : undefined}
+        style={{ touchAction: onClick ? 'manipulation' : 'auto'}}
       >
         <svg
           className="h-8 w-8 text-gray-400"
@@ -68,7 +80,7 @@ export default function SafeImage({
   }
 
   return (
-    <div>
+    <div className="relative w-full h-full">
       {!imageLoaded && (
         <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
       )}
@@ -79,11 +91,14 @@ export default function SafeImage({
         onLoad={handleLoad}
         onError={handleError}
         onClick={onClick ? handleClick : undefined}
+        onTouchEnd={onClick ? handleTouchEnd : undefined}
         loading={loading}
         style={{
           width: '100%',
           height: '100%',
           objectFit: 'cover',
+          touchAction: onClick ? 'manipulation' : 'auto',
+          cursor: onClick ? 'pointer' : 'default',
         }} 
       />
     </div>
