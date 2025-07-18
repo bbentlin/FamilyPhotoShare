@@ -33,90 +33,74 @@ const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
 // Sortable Photo Component
-const SortablePhoto = memo(function SortablePhoto({
-  photo,
-  onClick,
-  onAddToAlbum,
-}: {
-  photo: Photo;
-  onClick: () => void;
-  onAddToAlbum?: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: photo.id });
+function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: photo.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  const handleContainerTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+  };
+
+  const handleContainerTouchEnd = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest("button")) {
+      e.preventDefault();
+      e.stopPropagation();
+      setTimeout(() => onClick(), 10);
+    }
+  };
+
   return (
     <div
       ref={setNodeRef}
+      style={style}
+      {...attributes}
       className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
-      style={{
-        ...style,
-        touchAction: 'manipulation',
-      }}
     >
-      {photo.url ? (
-        <SafeImage
-          src={photo.url}
-          alt={photo.title || "Photo"}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-          onClick={(e) => {
-            e?.preventDefault();
-            e?.stopPropagation();
-            console.log("Photo clicked:", photo.title);
-            onClick();
-          }} 
-          loading="lazy"
-        />
-      ) : (
-        <div
-          className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-        >
-          <svg
-            className="h-8 w-8 text-gray-400 dark:text-gray-300"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-        </div>
-      )}
-
-      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-
-      <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
-        <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
-          {photo.title || "Untitled Photo"}
-        </p>
-      </div>
-
-      {/* Add to album button - show on hover */}
-      {onAddToAlbum && (
-        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <button
+      <div
+        className="absolute inset-0 cursor-pointer"
+        style={{
+          touchAction: 'manipulation',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent'
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }}
+        onTouchStart={handleContainerTouchStart}
+        onTouchEnd={handleContainerTouchEnd}
+      >
+        {photo.url ? (
+          <SafeImage
+            src={photo.url}
+            alt={photo.title || "Photo"}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
+            onClick={(e) => {
+              e?.preventDefault();
+              e?.stopPropagation();
+              console.log("Photo clicked:", photo.title);
+              onClick();
+            }} 
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
-              onAddToAlbum();
+              onClick();
             }}
-            className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
-            title="Add to Album"
           >
             <svg
-              className="h-4 w-4"
+              className="h-8 w-8 text-gray-400 dark:text-gray-300"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -125,39 +109,81 @@ const SortablePhoto = memo(function SortablePhoto({
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-          </button>
-        </div>
-      )}
+          </div>
+        )}
 
-      {/* Separate drag handle - only this area is draggable */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
-        title="Drag to reorder"
-      >
-        <div className="bg-black bg-opacity-70 rounded-md p-2 hover:bg-opacity-90 transition-all">
-          <svg
-            className="h-4 w-4 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8h16M4 16h16"
-            />
-          </svg>
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
+
+        <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
+          <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
+            {photo.title || "Untitled Photo"}
+          </p>
+        </div>
+
+        {/* Add to album button - show on hover */}
+        {onAddToAlbum && (
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onAddToAlbum();
+              }}
+              className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
+              style={{
+                touchAction: 'manipulation',
+                minHeight: '44px',
+                minWidth: '44px'
+              }}
+              title="Add to Album"
+            >
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Separate drag handle - only this area is draggable */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
+          title="Drag to reorder"
+        >
+          <div className="bg-black bg-opacity-70 rounded-md p-2 hover:bg-opacity-90 transition-all">
+            <svg
+              className="h-4 w-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8h16M4 16h16"
+              />
+            </svg>
+          </div>
         </div>
       </div>
     </div>
   );
-});
+}
 
 const debounce = (func: Function, wait: number) => {
   let timeout: NodeJS.Timeout;

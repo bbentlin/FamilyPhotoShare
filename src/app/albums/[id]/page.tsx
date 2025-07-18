@@ -301,97 +301,141 @@ export default function AlbumPage({
             </h2>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
-                  style={{ touchAction: 'manipulation' }}
-                  onClick={(e) => {
-                    // Only open modal if we're not clicking on the cover button
-                    const target = e.target as HTMLElement;
-                    if (!target.closest("button")) {
-                      openPhotoModal(photo, index);
-                    }
-                  }}
-                  onTouchEnd={(e) => {
-                    const target = e.target as HTMLElement;
-                    if (!target.closest("button")) {
-                      openPhotoModal(photo, index);
-                    }
-                  }}
-                >
-                  {photo.url ? (
-                    <SafeImage 
-                      src={photo.url}
-                      alt={photo.title || "Photo"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                    /> 
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                      <svg
-                        className="h-8 w-8 text-gray-400 dark:text-gray-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              {photos.map((photo, index) => {
+                // iOS-specific touch handlers
+                const handlePhotoTouchStart = (e: React.TouchEvent) => {
+                  e.stopPropagation();
+                };
+
+                const handlePhotoTouchEnd = (e: React.TouchEvent) => {
+                  const target = e.target as HTMLElement;
+                  if (!target.closest("button")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setTimeout(() => openPhotoModal(photo, index), 10);
+                  }
+                };
+
+                const handleCoverButtonTouch = (e: React.TouchEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (photo.url) {
+                    setTimeout(() => handleQuickSetCover(photo.url!), 10);
+                  }
+                };
+
+                return (
+                  <div
+                    key={photo.id}
+                    className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
+                  >
+                    {/* Touchable photo container */}
+                    <div
+                      className="absolute inset-0 cursor-pointer"
+                      style={{
+                        touchAction: "manipulation",
+                        WebkitTouchCallout: "none",
+                        WebkitUserSelect: "none",
+                        userSelect: "none",
+                        WebkitTapHighlightColor: "transparent",
+                      }}
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (!target.closest("button")) {
+                          openPhotoModal(photo, index);
+                        }
+                      }}
+                      onTouchStart={handlePhotoTouchStart}
+                      onTouchEnd={handlePhotoTouchEnd}
+                    >
+                      {photo.url ? (
+                        <SafeImage
+                          src={photo.url}
+                          alt={photo.title || "Photo"}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          loading="lazy"
                         />
-                      </svg>
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                          <svg
+                            className="h-8 w-8 text-gray-400 dark:text-gray-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
                     </div>
-                  )}
 
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
+                    {/* Current cover indicator */}
+                    {photo.url === album.coverPhoto && (
+                      <div className="absolute top-2 left-2 bg-green-600 dark:bg-green-500 text-white px-2 py-1 rounded text-xs font-medium z-20">
+                        Cover
+                      </div>
+                    )}
 
-                  {/* Current cover indicator */}
-                  {photo.url === album.coverPhoto && (
-                    <div className="absolute top-2 left-2 bg-green-600 dark:bg-green-500 text-white px-2 py-1 rounded text-xs font-medium">
-                      Cover
-                    </div>
-                  )}
-
-                  {/* Set as Cover button - show on hover for non-cover photos */}
-                  {photo.url && photo.url !== album.coverPhoto && (
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                      <button
-                        onClick={(e) => {
-                          console.log("🎯 COVER BUTTON CLICKED");
-                          e.stopPropagation(); // Prevent container click
-                          if (photo.url) {
-                            handleQuickSetCover(photo.url);
-                          }
-                        }}
-                        className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
-                        title="Set as Cover Photo"
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                    {/* Set as Cover button - show on hover for non-cover photos */}
+                    {photo.url && photo.url !== album.coverPhoto && (
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                        <button
+                          onClick={(e) => {
+                            console.log("🎯 COVER BUTTON CLICKED");
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (photo.url) {
+                              handleQuickSetCover(photo.url);
+                            }
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onTouchEnd={handleCoverButtonTouch}
+                          className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
+                          style={{
+                            touchAction: "manipulation",
+                            minHeight: "44px",
+                            minWidth: "44px",
+                            WebkitTouchCallout: "none",
+                            WebkitUserSelect: "none",
+                            userSelect: "none",
+                            WebkitTapHighlightColor: "transparent",
+                          }}
+                          title="Set as Cover Photo"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 3h14v10l-3-3-2 2-4-4-5 5V6z"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
+                          <svg
+                            className="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 3h14v10l-3-3-2 2-4-4-5 5V6z"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
 
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                      {photo.title || "Untitled Photo"}
-                    </p>
+                    <div className="absolute bottom-2 left-2 right-2 z-10">
+                      <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                        {photo.title || "Untitled Photo"}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -433,8 +477,9 @@ export default function AlbumPage({
               Delete Album
             </h3>
             <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete &quot;{album.title}&quot;? This action can
-              not be undone. The photos will not be deleted, only the album.
+              Are you sure you want to delete &quot;{album.title}&quot;? This
+              action can not be undone. The photos will not be deleted, only the
+              album.
             </p>
 
             <div className="flex items-center justify-end gap-3">

@@ -142,51 +142,37 @@ a:focus-visible {
   }
 }
 
-/* Force hardware acceleration on iOS */
-.group img,
-.group Image {
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
-/* Fix image rendering on iOS */
-img,
-Image {
-  image-rendering: -webkit-optimize-contrast;
-  image-rendering: crisp-edges;
-}
-
-.photo-grid img,
-.photo-grid button {
-  touch-action: manipulation;
-  user-select: none;
-}
-
-.photo-container {
-  touch-action: manipulation;
-}
-
-@media (max-width: 768px) {
-  .photo-grid button {
-    min-height: 44px;
-    min-width: 44px;
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .photo-touchable,
+  .photo-grid img,
+  .photo-grid button,
+  .cursor-pointer {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+  }
+  
+  /* Force hardware acceleration */
+  .group img {
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+  
+  /* Ensure touch targets are large enough */
+  button {
+    min-height: 44px !important;
+    min-width: 44px !important;
   }
 }
 
-.photo-touchable {
-  touch-action: manipulation;
-  user-select: none;
-  outline: none;
-}
-
-.photo-touchable:focus:not(:focus-visible) {
-  outline: none;
-}
-
-.photo-touchable:focus-visible {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
+/* Force cursor pointer on all clickable elements */
+[data-clickable="true"],
+.cursor-pointer,
+button:not(:disabled) {
+  cursor: pointer !important;
 }
 

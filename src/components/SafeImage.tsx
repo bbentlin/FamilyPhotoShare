@@ -38,15 +38,24 @@ export default function SafeImage({
     onError?.();
   };
 
-  const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleTouchStart = (e: React.TouchEvent) => {
     if (onClick) {
       e.preventDefault();
-      e.stopPropagation();
-      onClick(e);
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (onClick) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      setTimeout(() => {
+        onClick(e);
+      }, 10);
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       e.preventDefault();
       e.stopPropagation();
@@ -59,8 +68,14 @@ export default function SafeImage({
       <div 
         className={`bg-gray-200 dark:bg-gray-700 flex items-center justify-center ${className}`}
         onClick={onClick ? handleClick : undefined}
+        onTouchStart={onClick ? handleTouchStart : undefined}
         onTouchEnd={onClick ? handleTouchEnd : undefined}
-        style={{ touchAction: onClick ? 'manipulation' : 'auto'}}
+        style={{ 
+          touchAction: onClick ? 'manipulation' : 'auto',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
         <svg
           className="h-8 w-8 text-gray-400"
@@ -98,7 +113,10 @@ export default function SafeImage({
           height: '100%',
           objectFit: 'cover',
           touchAction: onClick ? 'manipulation' : 'auto',
-          cursor: onClick ? 'pointer' : 'default',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent'
         }} 
       />
     </div>
