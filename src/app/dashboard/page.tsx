@@ -34,24 +34,83 @@ const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
 // Sortable Photo Component
 function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: photo.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: photo.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
+  // Track if we're in a drag operation
+  const [isDragOperation, setIsDragOperation] = useState(false);
+
   const handleContainerTouchStart = (e: React.TouchEvent) => {
-    e.stopPropagation();
+    if (isDragging) {
+      e.stopPropagation();
+      return;
+    }
+
+    // Set timeout to detect drag vs tap
+    const touchStartTime = Date.now();
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      const moveX = moveEvent.touches[0].clientX;
+      const moveY = moveEvent.touches[0].clientY;
+      const distance = Math.sqrt(
+        Math.pow(moveX - startX, 2) + Math.pow(moveY - startY, 2)
+      );
+
+      // If moved more than 10px, consider it a drag
+      if (distance > 10) {
+        setIsDragOperation(true);
+        document.removeEventListener('touchmove', handleTouchMove);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+
+      // Reset drag operation flag after a delay
+      setTimeout(() => setIsDragOperation(false), 100);
+    };
+
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
   };
 
   const handleContainerTouchEnd = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    if (!target.closest("button")) {
+    
+    // Don't open modal if:
+    // 1. We're dragging
+    // 2. This was detected as a drag operation
+    // 3. Clicking on a button
+    if (isDragging || isDragOperation || target.closest("button")) {
       e.preventDefault();
       e.stopPropagation();
-      setTimeout(() => onClick(), 10);
+      return;
     }
+
+    // Only open modal for actual taps
+    e.preventDefault();
+    e.stopPropagation();
+    setTimeout(() => onClick(), 10);
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Don't open modal if dragging
+    if (isDragging || isDragOperation) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    onClick();
   };
 
   return (
@@ -59,22 +118,22 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
+      className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
+        isDragging ? 'opacity-50 z-50' : ''
+      }`}
     >
+      {/* Main photo container - only handles taps, not drags */}
       <div
         className="absolute inset-0 cursor-pointer"
         style={{
-          touchAction: 'manipulation',
+          touchAction: isDragging ? 'none' : 'manipulation',
           WebkitTouchCallout: 'none',
           WebkitUserSelect: 'none',
           userSelect: 'none',
-          WebkitTapHighlightColor: 'transparent'
+          WebkitTapHighlightColor: 'transparent',
+          pointerEvents: isDragging ? 'none' : 'auto'
         }}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onClick();
-        }}
+        onClick={handleClick}
         onTouchStart={handleContainerTouchStart}
         onTouchEnd={handleContainerTouchEnd}
       >
@@ -83,22 +142,10 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
             src={photo.url}
             alt={photo.title || "Photo"}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-            onClick={(e) => {
-              e?.preventDefault();
-              e?.stopPropagation();
-              console.log("Photo clicked:", photo.title);
-              onClick();
-            }} 
             loading="lazy"
           />
         ) : (
-          <div
-            className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
-          >
+          <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer">
             <svg
               className="h-8 w-8 text-gray-400 dark:text-gray-300"
               fill="none"
@@ -123,7 +170,7 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
           </p>
         </div>
 
-        {/* Add to album button - show on hover */}
+        {/* Add to album button */}
         {onAddToAlbum && (
           <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <button
@@ -162,9 +209,22 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
           {...attributes}
           {...listeners}
           className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
+          style={{
+            touchAction: 'none', // Allow dragging
+            background: 'rgba(0, 0, 0, 0.7)',
+            borderRadius: '6px',
+            minHeight: '44px',
+            minWidth: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
           title="Drag to reorder"
+          onTouchStart={(e) => {
+            setIsDragOperation(true);
+            e.stopPropagation();
+          }}
         >
-          <div className="bg-black bg-opacity-70 rounded-md p-2 hover:bg-opacity-90 transition-all">
             <svg
               className="h-4 w-4 text-white"
               fill="none"
@@ -178,7 +238,6 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
                 d="M4 8h16M4 16h16"
               />
             </svg>
-          </div>
         </div>
       </div>
     </div>
