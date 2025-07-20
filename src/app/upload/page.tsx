@@ -42,36 +42,45 @@ export default function UploadPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  if (!isMounted) {
-    return <LoadingSpinner />;
-  }
-
-  // Fetch albums
-  useEffect(() => {
     async function fetchAlbums() {
-      if (user) {
-        try {
-          const albumsQuery = query(
-            collection(db, "albums"),
-            orderBy("updatedAt", "desc")
-          );
-          const albumSnapshot = await getDocs(albumsQuery);
-          const albumsData = albumSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setAlbums(albumsData);
-        } catch (error: unknown) {
-          console.error("Error fetching albums:", error);
-        }
+      if (!user || !db) return;
+
+      try {
+        const albumsQuery = query(
+          collection(db, "albums"),
+          orderBy("updatedAt", "desc")
+        );
+        const albumSnapshot = await getDocs(albumsQuery);
+        const albumsData = albumSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setAlbums(albumsData);
+      } catch (error: unknown) {
+        console.error("Error fetching albums:", error);
+        setAlbums([]);
       }
     }
 
     fetchAlbums();
   }, [user]);
+
+  // Redirect handling
+  useEffect(() => {
+    if (!user && !isMounted) {
+      router.push("/login");
+    }
+  }, [user, router, isMounted]);
+
+  // Early return for mounting
+  if (!isMounted) {
+    return <LoadingSpinner />;
+  }
+
+  // Early return for authentication
+  if (!user) {
+    return <LoadingSpinner message="Redirecting to login..." />; 
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -88,7 +97,7 @@ export default function UploadPage() {
     const newFiles: PhotoFile[] = imageFiles.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
-      title: file.name.split(",")[0], // Remove extension
+      title: file.name.split(".")[0], // Remove extension
       description: "",
     }));
 
@@ -192,14 +201,16 @@ export default function UploadPage() {
       setError("Failed to upload photos. Please try again.");
     } finally {
       setIsUploading(false);
+      setUploadProgress({});
     }
   };
 
-  // Redirect if not authenticated
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  // Clean up preview URLs on component unmount
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -209,7 +220,7 @@ export default function UploadPage() {
           <div className="flex justify-between items-center h-16">
             <Link href="/dashboard" className="flex items-center gap-2">
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                FPS
+                Family Photo Share
               </span>
             </Link>
 
@@ -235,15 +246,19 @@ export default function UploadPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold mb-6">Upload Photos</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+            Upload Photos
+          </h1>
 
           {/* Album Title Input */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Album Information</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Album Information
+            </h2>
             <div>
               <label
                 htmlFor="albumTitle"
-                className="block text-sm font-medium text-gray-700 mb-2"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
                 Album Title
               </label>
@@ -252,22 +267,58 @@ export default function UploadPage() {
                 value={albumTitle}
                 onChange={(e) => setAlbumTitle(e.target.value)}
                 placeholder="e.g., Summer Vacation 2024"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                disabled={isUploading}
               />
-              <p className="text-sm text-gray-500 mt-1">
-                Leave empty to upload individual photos without creating an
-                album
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Leave empty to upload individual photos without creating an album
               </p>
             </div>
           </div>
 
-          {/* File Upload Area */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Select Photos</h2>
+          {/* Album Selection */}
+          {albums.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Add to Existing Album
+              </h2>
+              <div>
+                <label
+                  htmlFor="album"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
+                  Select Album (Optional)
+                </label>
+                <select
+                  id="album"
+                  value={selectedAlbum}
+                  onChange={(e) => setSelectedAlbum(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isUploading}
+                >
+                  <option value="">No Album</option>
+                  {albums.map((album) => (
+                    <option key={album.id} value={album.id}>
+                      {album.title}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  You can also add photos to album later
+                </p>
+              </div>
+            </div>
+          )}
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+          {/* File Upload Area */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Select Photos
+            </h2>
+
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
               <svg
-                className="mx-auto h-12 w-12 text-gray-400 mb-4"
+                className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4"
                 stroke="currentColor"
                 fill="none"
                 viewBox="0 0 48 48"
@@ -279,10 +330,10 @@ export default function UploadPage() {
                   strokeLinejoin="round"
                 />
               </svg>
-              <div className="text-xl mb-2">
+              <div className="text-xl text-gray-900 dark:text-white mb-2">
                 Drop photos here or click to browse
               </div>
-              <p className="text-gray-500 mb-4">
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Support for JPG, PNG, GIF files
               </p>
 
@@ -310,15 +361,15 @@ export default function UploadPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
-              <p className="text-red-800">{error}</p>
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4 mb-6">
+              <p className="text-red-800 dark:text-red-200">{error}</p>
             </div>
           )}
 
           {/* Selected Files Preview */}
           {selectedFiles.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h2 className="text-lg font-semibold mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Selected Photos ({selectedFiles.length})
               </h2>
 
@@ -326,9 +377,12 @@ export default function UploadPage() {
                 {selectedFiles.map((photoFile, index) => (
                   <div
                     key={index}
-                    className="border border-gray-200 rounded-lg overflow-hidden"
+                    className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
                   >
-                    <div className="relative h-48">
+                    <div 
+                      className="relative h-48"
+                      style={{ touchAction: 'manipulation' }}
+                    >
                       <SafeImage 
                         src={photoFile.preview}
                         alt="Preview"
@@ -336,7 +390,13 @@ export default function UploadPage() {
                       />
                       <button
                         onClick={() => removeFile(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        style={{
+                          minHeight: '44px',
+                          minWidth: '44px',
+                          touchAction: 'manipulation'
+                        }}
+                        disabled={isUploading}
                       >
                         x
                       </button>
@@ -344,7 +404,7 @@ export default function UploadPage() {
 
                     <div className="p-4 space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Title
                         </label>
                         <input
@@ -353,11 +413,12 @@ export default function UploadPage() {
                           onChange={(e) =>
                             updateFileMetadata(index, "title", e.target.value)
                           }
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          disabled={isUploading}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Description (Optional)
                         </label>
                         <textarea
@@ -370,7 +431,7 @@ export default function UploadPage() {
                             )
                           }
                           rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           disabled={isUploading}
                         />
                       </div>
@@ -381,44 +442,23 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Album Selection */}
-          <div>
-            <label
-              htmlFor="album"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Add to Album (Optional)
-            </label>
-            <select
-              id="album"
-              value={selectedAlbum}
-              onChange={(e) => setSelectedAlbum(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">No Album</option>
-              {albums.map((album) => (
-                <option key={album.id} value={album.id}>
-                  {album.title}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              You can also add photos to albums later
-            </p>
-          </div>
-
           {/* Upload Button */}
           {selectedFiles.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
                     Ready to upload {selectedFiles.length} photo
                     {selectedFiles.length > 1 ? "s" : ""}
                   </p>
                   {albumTitle && (
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       Will be added to album: &quot;{albumTitle}&quot;
+                    </p>
+                  )}
+                  {selectedAlbum && albums.find(a => a.id === selectedAlbum) && (
+                    <p>
+                      Will be added to: &quot;{albums.find(a => a.id === selectedAlbum)?.title}&quot;
                     </p>
                   )}
                 </div>
@@ -426,7 +466,7 @@ export default function UploadPage() {
                 <button
                   onClick={uploadFiles}
                   disabled={isUploading}
-                  className={`px-6 py-3 rounded-lg font-medium ${
+                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
                     isUploading
                       ? "bg-gray-400 cursor-not-allowed text-white"
                       : "bg-blue-600 hover:bg-blue-700 text-white"
@@ -440,12 +480,15 @@ export default function UploadPage() {
               {isUploading && (
                 <div className="mt-4">
                   <LoadingSpinner message="Uploading photos..." />
-                  <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{
                         width: `${
-                          Object.values(uploadProgress).reduce((a, b) => a + b, 0) / selectedFiles.length
+                          Object.keys(uploadProgress).length > 0
+                            ? (Object.values(uploadProgress).reduce((a, b) => a + b, 0) /
+                              selectedFiles.length)
+                            : 0
                         }%`,
                       }}
                     ></div>
