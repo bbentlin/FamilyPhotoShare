@@ -76,6 +76,16 @@ export default function UploadPage() {
     }
   }, [user, router, isMounted]);
 
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach((file) => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
+    };
+  }, [selectedFiles]);
+
   // Early return for mounting
   if (!isMounted) {
     return <LoadingSpinner message="Loading..." />;
@@ -196,7 +206,11 @@ export default function UploadPage() {
       }
 
       // Clean up preview URLs
-      selectedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
+      selectedFiles.forEach((file) => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
 
       // Redirect to dashboard
       router.push("/dashboard");
