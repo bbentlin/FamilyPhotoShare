@@ -17,6 +17,7 @@ import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SafeImage from "@/components/SafeImage";
+import { sendNotification } from "@/lib/notifications";
 
 interface PhotoFile {
   file: File;
@@ -217,6 +218,17 @@ export default function UploadPage() {
 
       // Redirect to dashboard
       router.push("/dashboard");
+
+      if (uploadedPhotos.length > 0) {
+        await sendNotification({
+          type: 'new_upload',
+          title: 'New Photos Uploaded',
+          message: `${user.displayName || user.email} uploaded ${uploadedPhotos.length} new photo${uploadedPhotos.length > 1 ? 's' : ''} ${albumTitle ? `to album "${albumTitle}"` : ''}.`,
+          triggeredBy: user.uid,
+          triggeredByName: user.displayName || user.email || 'Unknown User',
+        });
+      }
+
     } catch (error: unknown) {
       console.error("Upload error:", error);
       setError("Failed to upload photos. Please try again.");
