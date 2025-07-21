@@ -42,6 +42,10 @@ export default function UploadPage() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
     async function fetchAlbums() {
       if (!user || !db) return;
 
@@ -67,14 +71,14 @@ export default function UploadPage() {
 
   // Redirect handling
   useEffect(() => {
-    if (!user && !isMounted) {
+    if (isMounted && !user) {
       router.push("/login");
     }
   }, [user, router, isMounted]);
 
   // Early return for mounting
   if (!isMounted) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner message="Loading..." />;
   }
 
   // Early return for authentication
