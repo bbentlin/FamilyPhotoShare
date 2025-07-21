@@ -57,7 +57,7 @@ export default function Navbar() {
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
                   >
-                    Dashboard
+                    Home
                   </Link>
                   <Link
                     href="/photos"
