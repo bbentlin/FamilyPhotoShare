@@ -76,6 +76,16 @@ export default function UploadPage() {
     }
   }, [user, router, isMounted]);
 
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach((file) => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
+    };
+  }, []);
+
   // Early return for mounting
   if (!isMounted) {
     return <LoadingSpinner message="Loading..." />;
@@ -196,7 +206,14 @@ export default function UploadPage() {
       }
 
       // Clean up preview URLs
-      selectedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
+      selectedFiles.forEach((file) => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
+
+      // Clear selected files
+      setSelectedFiles([]);
 
       // Redirect to dashboard
       router.push("/dashboard");
@@ -208,13 +225,6 @@ export default function UploadPage() {
       setUploadProgress({});
     }
   };
-
-  // Clean up preview URLs on component unmount
-  useEffect(() => {
-    return () => {
-      selectedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
