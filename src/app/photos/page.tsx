@@ -159,8 +159,14 @@ export default function PhotosPage() {
     onClick: () => void;
     onAddToAlbum: () => void;
   }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-      useSortable({ id: photo.id });
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: photo.id });
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -188,7 +194,10 @@ export default function PhotosPage() {
 
             // Don't open modal if clicking on buttons or drag handle
             const target = e.target as HTMLElement;
-            if (target.closest("button") || target.closest("[data-drag-handle]")) {
+            if (
+              target.closest("button") ||
+              target.closest("[data-drag-handle]")
+            ) {
               e.preventDefault();
               e.stopPropagation();
               return;
