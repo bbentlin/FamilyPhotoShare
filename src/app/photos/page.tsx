@@ -41,7 +41,11 @@ export default function PhotosPage() {
     useState<Photo | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -146,7 +150,6 @@ export default function PhotosPage() {
     // You could add a small refresh here or just close the modal
   };
 
-  // Reuse the same components from dashboard
   function SortablePhoto({
     photo,
     onClick,
@@ -156,111 +159,53 @@ export default function PhotosPage() {
     onClick: () => void;
     onAddToAlbum: () => void;
   }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-      useSortable({ id: photo.id });
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: photo.id });
 
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
     };
 
-    // Track if we're in a drag operation
-    const [isDragOperation,  setIsDragOperation] = useState(false);
-
-    const handleContainerTouchStart = (e: React.TouchEvent) => {
-      if (isDragging) {
-        e.stopPropagation();
-        return;
-      }
-
-      // Set timeout to detect drag vs tap
-      const touchStartTime = Date.now();
-      const startX = e.touches[0].clientX;
-      const startY = e.touches[0].clientY;
-
-      const handleTouchMove = (moveEvent: TouchEvent) => {
-        const moveX = moveEvent.touches[0].clientX;
-        const moveY = moveEvent.touches[0].clientY;
-        const distance = Math.sqrt(
-          Math.pow(moveX - startX, 2) + Math.pow(moveY - startY, 2)
-        );
-
-        // If moved more than 10px, consider it a drag
-        if (distance > 10) {
-          setIsDragOperation(true);
-          document.removeEventListener('touchmove', handleTouchMove);
-        }
-      };
-
-      const handleTouchEnd = () => {
-        document.removeEventListener('touchmove', handleTouchMove);
-        document.removeEventListener('touchend', handleTouchEnd);
-
-        // Reset drag operation flag after a delay
-        setTimeout(() => setIsDragOperation(false), 100);
-      };
-
-      document.addEventListener('touchmove', handleTouchMove);
-      document.addEventListener('touchend', handleTouchEnd);
-    };
-
-    const handleContainerTouchEnd = (e: React.TouchEvent) => {
-      const target = e.target as HTMLElement;
-
-      // Don't open modal if:
-      // 1. We're dragging
-      // 2. This was detected as a drag operation
-      // 3. Clicking on a button
-      if (isDragging || isDragOperation || target.closest("button")) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      // Only open modal for actual taps
-      e.preventDefault();
-      e.stopPropagation();
-      setTimeout(() => onClick(), 10);
-    };
-
-    const handleClick = (e: React.MouseEvent) => {
-      // Don't open modal if dragging
-      if (isDragging || isDragOperation) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      e.preventDefault();
-      e.stopPropagation();
-      onClick();
-    };
-
     return (
-      <div 
+      <div
         ref={setNodeRef}
         style={style}
         className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
-          isDragging ? 'opacity-50 z-50' : ''  
-        }`}        
+          isDragging ? "opacity-50 z-50" : ""
+        }`}
       >
-        {/* Main photo container - only handles taps, not drags */}
+        {/* Main photo container - simple click/tap handler */}
         <div
           className="absolute inset-0 cursor-pointer"
-          style={{
-            touchAction: isDragging ? 'none' : 'manipulation',
-            WebkitTouchCallout: 'none',
-            WebkitUserSelect: 'none',
-            userSelect: 'none', 
-            WebkitTapHighlightColor: 'transparent', 
-            pointerEvents: isDragging ? 'none' : 'auto'
+          onClick={(e) => {
+            // Don't open modal if currently dragging
+            if (isDragging) {
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
+
+            // Don't open modal if clicking on buttons or drag handle
+            const target = e.target as HTMLElement;
+            if (
+              target.closest("button") ||
+              target.closest("[data-drag-handle]")
+            ) {
+              return;
+            }
+
+            onClick();
           }}
-          onClick={handleClick}
-          onTouchStart={handleContainerTouchStart}
-          onTouchEnd={handleContainerTouchEnd}
         >
           {photo.url ? (
-            <SafeImage 
+            <SafeImage
               src={photo.url}
               alt={photo.title || "Photo"}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
@@ -276,7 +221,7 @@ export default function PhotosPage() {
               >
                 <path
                   strokeLinecap="round"
-                  strokeLinejoin="round" 
+                  strokeLinejoin="round"
                   strokeWidth={2}
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
@@ -284,69 +229,33 @@ export default function PhotosPage() {
             </div>
           )}
 
+          {/* Hover overlay */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-          <div className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
-            <p>
+
+          {/* Photo title */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <p className="text-white text-sm font-medium truncate">
               {photo.title || "Untitled Photo"}
             </p>
           </div>
         </div>
 
         {/* Add to album button */}
-        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onAddToAlbum();
-            }}
-            className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
-            style={{
-              touchAction: 'manipulation',
-              minHeight: '44px',
-              minWidth: '44px'
-            }}
-            title="Add to Album"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" 
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Drag handle - only this area is draggable */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-20 p-2"
-          style={{
-            touchAction: 'none', // Allow dragging
-            background: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: '6px',
-            minHeight: '44px',
-            minWidth: '44px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          title="Drag to reorder"
-          onTouchStart={(e) => {
-            setIsDragOperation(true);
+        <button
+          onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
+            onAddToAlbum();
           }}
+          className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all opacity-0 group-hover:opacity-100"
+          style={{
+            minHeight: "44px",
+            minWidth: "44px",
+          }}
+          title="Add to Album"
         >
           <svg
-            className="h-4 w-4 text-white"
+            className="h-4 w-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -355,7 +264,37 @@ export default function PhotosPage() {
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M4 8h16M4 16h16" 
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            />
+          </svg>
+        </button>
+
+        {/* Drag handle - Let dnd-kit handle all drag logic */}
+        <div
+          {...attributes}
+          {...listeners}
+          data-drag-handle="true"
+          className="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all opacity-60 group-hover:opacity-100 cursor-move"
+          style={{
+            minHeight: "44px",
+            minWidth: "44px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Drag to reorder"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8h16M4 16h16"
             />
           </svg>
         </div>
