@@ -159,14 +159,8 @@ export default function PhotosPage() {
     onClick: () => void;
     onAddToAlbum: () => void;
   }) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: photo.id });
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+      useSortable({ id: photo.id });
 
     const style = {
       transform: CSS.Transform.toString(transform),
@@ -194,14 +188,16 @@ export default function PhotosPage() {
 
             // Don't open modal if clicking on buttons or drag handle
             const target = e.target as HTMLElement;
-            if (
-              target.closest("button") ||
-              target.closest("[data-drag-handle]")
-            ) {
+            if (target.closest("button") || target.closest("[data-drag-handle]")) {
+              e.preventDefault();
+              e.stopPropagation();
               return;
             }
 
             onClick();
+          }}
+          style={{
+            touchAction: "manipulation", // Allows taps but prevents zoom/scroll
           }}
         >
           {photo.url ? (
@@ -240,7 +236,7 @@ export default function PhotosPage() {
           </div>
         </div>
 
-        {/* Add to album button */}
+        {/* Add to album button - top left */}
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -269,7 +265,7 @@ export default function PhotosPage() {
           </svg>
         </button>
 
-        {/* Drag handle - Let dnd-kit handle all drag logic */}
+        {/* Drag handle - top right corner */}
         <div
           {...attributes}
           {...listeners}
@@ -281,6 +277,7 @@ export default function PhotosPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            touchAction: "none", // This is crucial - lets dnd-kit handle all touch events
           }}
           title="Drag to reorder"
         >
