@@ -26,6 +26,7 @@ import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo } from "@/types";
 import SafeImage from "@/components/SafeImage";
+import PhotoModal from "@/components/PhotoModal";
 
 export default function PhotosPage() {
   const { user } = useAuth();
@@ -144,141 +145,6 @@ export default function PhotosPage() {
     // Optionally refresh the photos data to show updated album info
     // You could add a small refresh here or just close the modal
   };
-
-  // Photo Modal Component
-  function PhotoModal({
-    photo,
-    onClose,
-    onPrevious,
-    onNext,
-    hasPrevious,
-    hasNext,
-    onAddToAlbum,
-  }: {
-    photo: Photo;
-    onClose: () => void;
-    onPrevious: () => void;
-    onNext: () => void;
-    hasPrevious: boolean;
-    hasNext: boolean;
-    onAddToAlbum?: () => void;
-  }) {
-    // Close modal on escape key
-    useEffect(() => {
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === "Escape") onClose();
-        if (e.key === "ArrowLeft" && hasPrevious) onPrevious();
-        if (e.key === "ArrowRight" && hasNext) onNext();
-      };
-
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
-    }, [onClose, onPrevious, onNext, hasPrevious, hasNext]);
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-        >
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-
-        {/* Previous button */}
-        {hasPrevious && (
-          <button
-            onClick={onPrevious}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-          >
-            <svg
-              className="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-        )}
-
-        {/* Next button */}
-        {hasNext && (
-          <button
-            onClick={onNext}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-white hover:text-gray-300 z-10"
-          >
-            <svg
-              className="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
-        )}
-
-        {/* Add to Album button */}
-        {onAddToAlbum && (
-          <button
-            onClick={onAddToAlbum}
-            className="absolute top-4 left-4 bg-black bg-opacity-50 hover:bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm transition-colors z-10"
-          >
-            Add to Album
-          </button>
-        )}
-
-        {/* Photo */}
-        <div className="max-w-4xl max-h-full p-4 flex flex-col items-center">
-          <SafeImage
-            src={photo.url}
-            alt={photo.title || "Photo"}
-            className="max-w-full max-h-[80vh] object-contain"
-            loading="eager"
-          />
-
-          {/* Photo info */}
-          <div className="text-center mt-4">
-            <h3 className="text-white text-lg font-semibold">
-              {photo.title || "Untitled Photo"}
-            </h3>
-            {photo.description && (
-              <p className="text-gray-300 text-sm mt-2">{photo.description}</p>
-            )}
-            <p className="text-gray-400 text-sm mt-1">
-              Uploaded by {(photo as any).uploadedByName || "Unknown"}
-            </p>
-          </div>
-        </div>
-
-        {/* Click outside to close */}
-        <div className="absolute inset-0 -z-10" onClick={onClose} />
-      </div>
-    );
-  }
 
   // Reuse the same components from dashboard
   function SortablePhoto({
@@ -611,12 +477,12 @@ export default function PhotosPage() {
       {selectedPhoto && (
         <PhotoModal
           photo={selectedPhoto}
+          isOpen={true}
           onClose={closePhotoModal}
           onPrevious={goToPreviousPhoto}
           onNext={goToNextPhoto}
           hasPrevious={selectedPhotoIndex > 0}
           hasNext={selectedPhotoIndex < photos.length - 1}
-          onAddToAlbum={() => openAddToAlbumModal(selectedPhoto)}
         />
       )}
 

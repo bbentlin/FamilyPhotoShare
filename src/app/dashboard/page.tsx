@@ -27,6 +27,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import SafeImage from "@/components/SafeImage";
+import Comments from "@/components/Comments";
 
 // Lazy load modals
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
