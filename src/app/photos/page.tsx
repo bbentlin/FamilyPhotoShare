@@ -9,17 +9,17 @@ import Link from "next/link";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import {
-  arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
   useSortable,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AddToAlbumModal from "@/components/AddToAlbumModal";
@@ -62,15 +62,10 @@ export default function PhotosPage() {
 
   const isMobile = useIsMobile();
 
+  // Sensors: require 8px movement before drag starts
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   useEffect(() => {
@@ -119,21 +114,22 @@ export default function PhotosPage() {
     fetchAllPhotos();
   }, [user, router, sortBy]);
 
-  const handleDragEnd = async (event: any) => {
+  const handleDragEnd = (event: any) => {
     const { active, over } = event;
-
     if (active.id !== over.id) {
-      const oldIndex = photos.findIndex((photo) => photo.id === active.id);
-      const newIndex = photos.findIndex((photo) => photo.id === over.id);
-
-      const newPhotos = arrayMove(photos, oldIndex, newIndex);
-      setPhotos(newPhotos);
+      setPhotos((photos) =>
+        arrayMove(
+          photos,
+          photos.findIndex((p) => p.id === active.id),
+          photos.findIndex((p) => p.id === over.id)
+        )
+      );
     }
   };
 
-  const openPhotoModal = (photo: any, index: number) => {
+  const openPhotoModal = (photo: Photo, idx: number) => {
     setSelectedPhoto(photo);
-    setSelectedPhotoIndex(index);
+    setSelectedPhotoIndex(idx);
   };
 
   const closePhotoModal = () => {
@@ -172,104 +168,8 @@ export default function PhotosPage() {
     // You could add a small refresh here or just close the modal
   };
 
-  // Simple photo component for mobile (no drag-and-drop)
-  function SimplePhotoCard({
-    photo,
-    onClick,
-    onAddToAlbum,
-  }: {
-    photo: any;
-    onClick: () => void;
-    onAddToAlbum: () => void;
-  }) {
-    return (
-      <div className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-        {/* Main photo container - simple click handler */}
-        <div
-          className="absolute inset-0 cursor-pointer"
-          onClick={onClick}
-          style={{
-            touchAction: "manipulation",
-          }}
-        >
-          {photo.url ? (
-            <SafeImage
-              src={photo.url}
-              alt={photo.title || "Photo"}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-              <svg
-                className="h-8 w-8 text-gray-400 dark:text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-          )}
-
-          {/* Hover overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-
-          {/* Photo title */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            <p className="text-white text-sm font-medium truncate">
-              {photo.title || "Untitled Photo"}
-            </p>
-          </div>
-        </div>
-
-        {/* Add to album button - top left */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAddToAlbum();
-          }}
-          className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all opacity-0 group-hover:opacity-100"
-          style={{
-            minHeight: "44px",
-            minWidth: "44px",
-          }}
-          title="Add to Album"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-            />
-          </svg>
-        </button>
-      </div>
-    );
-  }
-
-  // Sortable photo component for desktop (with drag-and-drop)
-  function SortablePhoto({
-    photo,
-    onClick,
-    onAddToAlbum,
-  }: {
-    photo: any;
-    onClick: () => void;
-    onAddToAlbum: () => void;
-  }) {
+  // Single sortable/tappable photo component
+  function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
     const {
       attributes,
       listeners,
@@ -278,11 +178,7 @@ export default function PhotosPage() {
       transition,
       isDragging,
     } = useSortable({ id: photo.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-    };
+    const style = { transform: CSS.Transform.toString(transform), transition };
 
     return (
       <div
@@ -292,26 +188,16 @@ export default function PhotosPage() {
           isDragging ? "opacity-50 z-50" : ""
         }`}
       >
-        {/* Main photo container - only handle mouse clicks */}
+        {/* tappable area */}
         <div
           className="absolute inset-0 cursor-pointer"
-          onClick={(e) => {
-            if (isDragging) {
-              e.preventDefault();
-              e.stopPropagation();
-              return;
-            }
-
-            const target = e.target as HTMLElement;
-            if (
-              target.closest("button") ||
-              target.closest("[data-drag-handle]")
-            ) {
-              return;
-            }
-
+          onPointerUp={(e) => {
+            if (isDragging) return;
+            const t = e.target as HTMLElement;
+            if (t.closest("button") || t.closest("[data-drag-handle]")) return;
             onClick();
           }}
+          style={{ touchAction: "manipulation" }}
         >
           {photo.url ? (
             <SafeImage
@@ -321,27 +207,15 @@ export default function PhotosPage() {
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-              <svg
-                className="h-8 w-8 text-gray-400 dark:text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+            <div
+              className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center"
+              style={{ pointerEvents: "none" }}
+            >
+              {/* placeholder svg */}
             </div>
           )}
-
-          {/* Hover overlay */}
+          {/* hover overlay & title */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-
-          {/* Photo title */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             <p className="text-white text-sm font-medium truncate">
               {photo.title || "Untitled Photo"}
@@ -349,63 +223,37 @@ export default function PhotosPage() {
           </div>
         </div>
 
-        {/* Add to album button */}
+        {/* add-to-album button */}
         <button
           onClick={(e) => {
-            e.preventDefault();
             e.stopPropagation();
             onAddToAlbum();
           }}
-          className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all opacity-0 group-hover:opacity-100"
-          style={{
-            minHeight: "44px",
-            minWidth: "44px",
-          }}
+          className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-0 group-hover:opacity-100"
+          style={{ minHeight: 44, minWidth: 44, touchAction: "manipulation" }}
           title="Add to Album"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-            />
-          </svg>
+          {/* svg icon */}
         </button>
 
-        {/* Drag handle - desktop only */}
+        {/* drag handle */}
         <div
           {...attributes}
           {...listeners}
           data-drag-handle="true"
-          className="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all opacity-60 group-hover:opacity-100 cursor-move"
+          className="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-60 group-hover:opacity-100 cursor-move"
           style={{
-            minHeight: "44px",
-            minWidth: "44px",
+            minHeight: 44,
+            minWidth: 44,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            touchAction: "none",
+            transform: "none !important",
           }}
           title="Drag to reorder"
         >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 8h16M4 16h16"
-            />
-          </svg>
+          {/* svg drag icon */}
         </div>
       </div>
     );
@@ -458,7 +306,7 @@ export default function PhotosPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
               <span className="text-sm text-gray-500">
-                {isMobile ? "Tap photos to view" : "Drag photos to rearrange"}
+                Drag photos to rearrange or tap to view
               </span>
               <Link
                 href="/albums/new"
@@ -468,42 +316,28 @@ export default function PhotosPage() {
               </Link>
             </div>
 
-            {isMobile ? (
-              // Mobile: Simple grid without drag-and-drop
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                {photos.map((photo, index) => (
-                  <SimplePhotoCard
-                    key={photo.id}
-                    photo={photo}
-                    onClick={() => openPhotoModal(photo, index)}
-                    onAddToAlbum={() => openAddToAlbumModal(photo)}
-                  />
-                ))}
-              </div>
-            ) : (
-              // Desktop: Drag-and-drop enabled
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
+            {/* unified grid with drag-and-drop + tap */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={photos.map((p) => p.id)}
+                strategy={rectSortingStrategy}
               >
-                <SortableContext
-                  items={photos.map((p) => p.id)}
-                  strategy={rectSortingStrategy}
-                >
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                    {photos.map((photo, index) => (
-                      <SortablePhoto
-                        key={photo.id}
-                        photo={photo}
-                        onClick={() => openPhotoModal(photo, index)}
-                        onAddToAlbum={() => openAddToAlbumModal(photo)}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                  {photos.map((photo, index) => (
+                    <SortablePhoto
+                      key={photo.id}
+                      photo={photo}
+                      onClick={() => openPhotoModal(photo, index)}
+                      onAddToAlbum={() => openAddToAlbumModal(photo)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
         ) : (
           <div className="text-center py-16">
