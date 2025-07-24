@@ -28,26 +28,6 @@ import { Photo } from "@/types";
 import SafeImage from "@/components/SafeImage";
 import PhotoModal from "@/components/PhotoModal";
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkIsMobile = () => {
-      setIsMobile(
-        window.innerWidth < 768 ||
-          /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-      );
-    };
-
-    checkIsMobile();
-    window.addEventListener("resize", checkIsMobile);
-
-    return () => window.removeEventListener("resize", checkIsMobile);
-  }, []);
-
-  return isMobile;
-}
-
 export default function PhotosPage() {
   const { user } = useAuth();
   const router = useRouter();
@@ -60,12 +40,12 @@ export default function PhotosPage() {
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
 
-  const isMobile = useIsMobile();
-
-  // Sensors: require 8px movement before drag starts
+  // Drag and drop sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
   );
 
   useEffect(() => {
@@ -178,7 +158,83 @@ export default function PhotosPage() {
       transition,
       isDragging,
     } = useSortable({ id: photo.id });
-    const style = { transform: CSS.Transform.toString(transform), transition };
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+    };
+
+    // Track if we're in a drag operation
+    const [isDragOperation, setIsDragOperation] = useState(false);
+
+    const handleContainerTouchStart = (e: React.TouchEvent) => {
+      if (isDragging) {
+        e.stopPropagation();
+        return;
+      }
+
+      // Set timeout to detect drag vs tap
+      const touchStartTime = Date.now();
+      const startX = e.touches[0].clientX;
+      const startY = e.touches[0].clientY;
+
+      const handleTouchMove = (moveEvent: TouchEvent) => {
+        const moveX = moveEvent.touches[0].clientX;
+        const moveY = moveEvent.touches[0].clientY;
+        const distance = Math.sqrt(
+          Math.pow(moveX - startX, 2) + Math.pow(moveY - startY, 2)
+        );
+
+        // If moved more than 10px, consider it a drag
+        if (distance > 10) {
+          setIsDragOperation(true);
+          document.removeEventListener("touchmove", handleTouchMove);
+        }
+      };
+
+      const handleTouchEnd = () => {
+        document.removeEventListener("touchmove", handleTouchMove);
+        document.removeEventListener("touchend", handleTouchEnd);
+
+        // Reset drag operation flag after a delay
+        setTimeout(() => setIsDragOperation(false), 100);
+      };
+
+      document.addEventListener("touchmove", handleTouchMove);
+      document.addEventListener("touchend", handleTouchEnd);
+    };
+
+    const handleContainerTouchEnd = (e: React.TouchEvent) => {
+      const target = e.target as HTMLElement;
+
+      // Don't open modal if:
+      // 1. We're dragging
+      // 2. This was detected as a drag operation
+      // 3. Clicking on a button
+      if (isDragging || isDragOperation || target.closest("button")) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      // Only open modal for actual taps
+      e.preventDefault();
+      e.stopPropagation();
+      setTimeout(() => onClick(), 10);
+    };
+
+    const handleClick = (e: React.MouseEvent) => {
+      // Don't open modal if dragging
+      if (isDragging || isDragOperation) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      onClick();
+    };
 
     return (
       <div
@@ -188,16 +244,20 @@ export default function PhotosPage() {
           isDragging ? "opacity-50 z-50" : ""
         }`}
       >
-        {/* tappable area */}
+        {/* Main photo container - only handles taps, not drags */}
         <div
           className="absolute inset-0 cursor-pointer"
-          onPointerUp={(e) => {
-            if (isDragging) return;
-            const t = e.target as HTMLElement;
-            if (t.closest("button") || t.closest("[data-drag-handle]")) return;
-            onClick();
+          style={{
+            touchAction: isDragging ? "none" : "manipulation",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
+            WebkitTapHighlightColor: "transparent",
+            pointerEvents: isDragging ? "none" : "auto",
           }}
-          style={{ touchAction: "manipulation" }}
+          onClick={handleClick}
+          onTouchStart={handleContainerTouchStart}
+          onTouchEnd={handleContainerTouchEnd}
         >
           {photo.url ? (
             <SafeImage
@@ -207,15 +267,25 @@ export default function PhotosPage() {
               loading="lazy"
             />
           ) : (
-            <div
-              className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center"
-              style={{ pointerEvents: "none" }}
-            >
-              {/* placeholder svg */}
+            <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+              <svg
+                className="h-8 w-8 text-gray-400 dark:text-gray-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
             </div>
           )}
-          {/* hover overlay & title */}
+
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
+
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
             <p className="text-white text-sm font-medium truncate">
               {photo.title || "Untitled Photo"}
@@ -223,37 +293,72 @@ export default function PhotosPage() {
           </div>
         </div>
 
-        {/* add-to-album button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onAddToAlbum();
-          }}
-          className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-0 group-hover:opacity-100"
-          style={{ minHeight: 44, minWidth: 44, touchAction: "manipulation" }}
-          title="Add to Album"
-        >
-          {/* svg icon */}
-        </button>
+        {/* Add to album button */}
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAddToAlbum();
+            }}
+            className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md transition-all"
+            style={{
+              touchAction: "manipulation",
+              minHeight: "44px",
+              minWidth: "44px",
+            }}
+            title="Add to Album"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+          </button>
+        </div>
 
-        {/* drag handle */}
+        {/* Separate drag handle - only this area is draggable */}
         <div
           {...attributes}
           {...listeners}
-          data-drag-handle="true"
-          className="absolute top-2 right-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-60 group-hover:opacity-100 cursor-move"
+          className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10"
           style={{
-            minHeight: 44,
-            minWidth: 44,
+            touchAction: "none",
+            background: "rgba(0, 0, 0, 0.7)",
+            borderRadius: "6px",
+            minHeight: "44px",
+            minWidth: "44px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            touchAction: "none",
-            transform: "none !important",
           }}
           title="Drag to reorder"
+          onTouchStart={(e) => {
+            setIsDragOperation(true);
+            e.stopPropagation();
+          }}
         >
-          {/* svg drag icon */}
+          <svg
+            className="h-4 w-4 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8h16M4 16h16"
+            />
+          </svg>
         </div>
       </div>
     );
@@ -261,10 +366,10 @@ export default function PhotosPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading photos...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading photos...</p>
         </div>
       </div>
     );
@@ -272,15 +377,32 @@ export default function PhotosPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header with theme toggle */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/dashboard"
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+              >
+                ← Back to Dashboard
+              </Link>
+            </div>
+            <ThemeToggle />
+          </div>
+        </div>
+      </header>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               All Photos
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               {photos.length} photos in your collection
             </p>
           </div>
@@ -292,7 +414,7 @@ export default function PhotosPage() {
               onChange={(e) =>
                 setSortBy(e.target.value as "newest" | "oldest" | "title")
               }
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
@@ -303,20 +425,20 @@ export default function PhotosPage() {
 
         {/* Photos Grid */}
         {photos.length > 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between mb-6">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 Drag photos to rearrange or tap to view
               </span>
               <Link
                 href="/albums/new"
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
               >
                 Create Album from Photos →
               </Link>
             </div>
 
-            {/* unified grid with drag-and-drop + tap */}
+            {/* Unified grid with drag-and-drop + tap */}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -342,7 +464,7 @@ export default function PhotosPage() {
         ) : (
           <div className="text-center py-16">
             <svg
-              className="mx-auto h-16 w-16 text-gray-400 mb-4"
+              className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -354,10 +476,10 @@ export default function PhotosPage() {
                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
               />
             </svg>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               No photos yet
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Start building your family photo collection
             </p>
             <Link
