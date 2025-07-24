@@ -59,10 +59,13 @@ export default function PhotoModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
       onClick={onClose}
     >
-      <div className="relative max-w-7xl max-h-full w-full h-full flex items-center justify-center p-4">
+      <div
+        className="relative bg-white dark:bg-gray-900 rounded-lg overflow-hidden w-full max-w-4xl h-full max-h-[90vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -161,13 +164,12 @@ export default function PhotoModal({
         )}
 
         {/* Layout Container */}
-        <div className="flex w-full h-full">
-          {/* Main Image Container */}
+        <div className="flex flex-col w-full h-full">
+          {/* Image area takes full height when no comments, otherwise 75% */}
           <div
-            className={`relative flex items-center justify-center transition-all duration-300 ${
-              showComments ? "w-2/3" : "w-full"
+            className={`relative flex items-center justify-center transition-all duration-300 w-full ${
+              showComments ? "h-3/4" : "h-full"
             }`}
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Loading Spinner */}
             {!isImageLoaded && (
@@ -180,40 +182,20 @@ export default function PhotoModal({
             <SafeImage
               src={photo.url}
               alt={photo.title || "Photo"}
-              className={`max-w-full max-h-full object-contain transition-opacity duration-300`}
+              className="max-w-full max-h-full object-contain transition-opacity duration-300"
               onLoad={() => setIsImageLoaded(true)}
               onError={() => setIsImageLoaded(true)}
               loading="eager"
             />
           </div>
 
-          {/* Comments Sidebar */}
+          {/* COMMENTS (now full-width bottom) */}
           {showComments && (
-            <div
-              className="w-1/3 bg-white dark:bg-gray-800 p-4 overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                  {photo.title || "Untitled Photo"}
-                </h3>
-                {photo.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    {photo.description}
-                  </p>
-                )}
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  {photo.createdAt instanceof Date
-                    ? photo.createdAt.toLocaleDateString()
-                    : photo.createdAt?.toDate?.()?.toLocaleDateString() ||
-                      "Unknown date"}
-                </div>
-              </div>
-
+            <div className="w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 overflow-y-auto">
               <Comments
                 photoId={photo.id}
-                photoOwnerId={(photo as any).uploadedBy}
-                photoOwnerName={(photo as any).uploadedByName || "Unknown"}
+                photoOwnerId={(photo as any).createdBy}
+                photoOwnerName={(photo as any).uploadedByName || "Unknown User"}
               />
             </div>
           )}
