@@ -135,7 +135,13 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
                       {comment.authorName}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {comment.createdAt?.toDate?.()?.toLocaleDateString() || 'Just now'}
+                      {comment.createdAt?.toDate?.()?.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      }) || 'Just now'}
                     </span>
                   </div>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">
