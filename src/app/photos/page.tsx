@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+// ADD: Import React for memoization and hooks
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { collection, getDocs, query, orderBy } from "@firebase/firestore";
@@ -40,7 +41,7 @@ export default function PhotosPage() {
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
 
-  // Drag and drop sensors
+  // UNCHANGED: Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -152,8 +153,13 @@ export default function PhotosPage() {
     // You could add a small refresh here or just close the modal
   };
 
-  // Single sortable/tappable photo component
-  function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
+  // CHANGED: Single sortable/tappable photo component with enhanced touch handling
+  // Memoize the component to prevent unnecessary re-renders
+  const SortablePhoto = React.memo(function SortablePhoto({
+    photo,
+    onClick,
+    onAddToAlbum,
+  }: any) {
     const {
       attributes,
       listeners,
@@ -168,6 +174,49 @@ export default function PhotosPage() {
       transition,
     };
 
+    // Use touchHandler ref to prevent re-creating on each render
+    const touchHandler = React.useRef({
+      isTouching: false,
+      startTime: 0,
+      moved: false,
+    });
+
+    // Handle touch start
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+      touchHandler.current.startTime = Date.now();
+      touchHandler.current.isTouching = true;
+      touchHandler.current.moved = false;
+    }, []);
+
+    // Handle touch move
+    const handleTouchMove = useCallback(() => {
+      touchHandler.current.moved = true;
+    }, []);
+
+    // Handle touch end - separate from click to handle mobile properly
+    const handleTouchEnd = useCallback(
+      (e: React.TouchEvent) => {
+        const { isTouching, moved, startTime } = touchHandler.current;
+
+        // Reset state
+        touchHandler.current.isTouching = false;
+
+        // Only trigger tap if:
+        // 1. We didn't move much
+        // 2. Touch is short duration
+        // 3. Not clicking on buttons or drag handle
+        if (!moved && Date.now() - startTime < 300) {
+          const target = e.target as HTMLElement;
+          if (!target.closest("button") && !target.closest("[data-drag]")) {
+            e.preventDefault();
+            e.stopPropagation();
+            onClick();
+          }
+        }
+      },
+      [onClick]
+    );
+
     return (
       <div
         ref={setNodeRef}
@@ -176,16 +225,27 @@ export default function PhotosPage() {
           isDragging ? "opacity-50 z-50" : ""
         }`}
       >
-        {/* Photo - simple click handler */}
+        {/* Photo - with explicit touch handlers */}
         <div
           className="absolute inset-0 cursor-pointer"
           onClick={(e) => {
-            // Don't open if clicking buttons or drag handle
+            // Only handle clicks on desktop
+            if ("ontouchstart" in window) return;
+
             const target = e.target as HTMLElement;
             if (target.closest("button") || target.closest("[data-drag]")) {
               return;
             }
             onClick();
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{
+            touchAction: "manipulation",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
           }}
         >
           {photo.url ? (
@@ -221,9 +281,10 @@ export default function PhotosPage() {
           </div>
         </div>
 
-        {/* Add to album button - TOP LEFT */}
+        {/* Add to album button */}
         <button
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             onAddToAlbum();
           }}
@@ -246,12 +307,11 @@ export default function PhotosPage() {
           </svg>
         </button>
 
-        {/* Drag handle - TOP RIGHT with forced positioning */}
+        {/* Drag handle - TOP RIGHT with forced positioning and transform override */}
         <button
           {...attributes}
           {...listeners}
           data-drag="true"
-          className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white rounded-md opacity-60 group-hover:opacity-100 cursor-move"
           style={{
             position: "absolute",
             top: "8px",
@@ -262,9 +322,17 @@ export default function PhotosPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            borderRadius: "6px",
+            opacity: 0.6,
             border: "none",
             padding: "8px",
+            color: "white",
+            touchAction: "none",
+            cursor: "move",
+            transform: "none !important", // IMPORTANT: Override any transform
           }}
+          className="group-hover:opacity-100 hover:bg-opacity-90"
           title="Drag to reorder"
         >
           <svg
@@ -283,7 +351,7 @@ export default function PhotosPage() {
         </button>
       </div>
     );
-  }
+  });
 
   if (isLoading) {
     return (
