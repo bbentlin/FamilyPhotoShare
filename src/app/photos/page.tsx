@@ -1,7 +1,7 @@
 "use client";
 
 // ADD: Import React for memoization and hooks
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { collection, getDocs, query, orderBy } from "@firebase/firestore";
@@ -28,6 +28,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { Photo } from "@/types";
 import SafeImage from "@/components/SafeImage";
 import PhotoModal from "@/components/PhotoModal";
+import { Alfa_Slab_One } from "next/font/google";
 
 export default function PhotosPage() {
   const { user, loading } = useAuth();
@@ -155,13 +156,16 @@ export default function PhotosPage() {
     // You could add a small refresh here or just close the modal
   };
 
-  // CHANGED: Single sortable/tappable photo component with enhanced touch handling
   // Memoize the component to prevent unnecessary re-renders
   const SortablePhoto = React.memo(function SortablePhoto({
     photo,
     onClick,
-    onAddToAlbum,
-  }: any) {
+    onAddToAlbum
+  }: {
+    photo: Photo;
+    onClick: () =>  void;
+    onAddToAlbum: () => void;
+  }) {
     const {
       attributes,
       listeners,
@@ -176,48 +180,53 @@ export default function PhotosPage() {
       transition,
     };
 
-    // Use touchHandler ref to prevent re-creating on each render
+    // Memoize touch handlers to prevent recreation on every render
     const touchHandler = React.useRef({
       isTouching: false,
       startTime: 0,
       moved: false,
     });
 
-    // Handle touch start
+    // Use callback to memoize event handlers
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
       touchHandler.current.startTime = Date.now();
       touchHandler.current.isTouching = true;
       touchHandler.current.moved = false;
     }, []);
 
-    // Handle touch move
     const handleTouchMove = useCallback(() => {
       touchHandler.current.moved = true;
     }, []);
 
-    // Handle touch end - separate from click to handle mobile properly
-    const handleTouchEnd = useCallback(
-      (e: React.TouchEvent) => {
-        const { isTouching, moved, startTime } = touchHandler.current;
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+      const { moved, startTime } = touchHandler.current;
+      touchHandler.current.isTouching = false;
 
-        // Reset state
-        touchHandler.current.isTouching = false;
-
-        // Only trigger tap if:
-        // 1. We didn't move much
-        // 2. Touch is short duration
-        // 3. Not clicking on buttons or drag handle
-        if (!moved && Date.now() - startTime < 300) {
-          const target = e.target as HTMLElement;
-          if (!target.closest("button") && !target.closest("[data-drag]")) {
-            e.preventDefault();
-            e.stopPropagation();
-            onClick();
-          }
+      if (!moved && (Date.now() - startTime < 300)) {
+        const target = e.target as HTMLElement;
+        if (!target.closest("button") && !target.closest("[data-drag]")) {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
         }
-      },
-      [onClick]
-    );
+      }
+    }, [onClick]);
+
+    const handleClick = useCallback((e: React.MouseEvent) => {
+      if ('ontouchstart' in window) return;
+
+      const target = e.target as HTMLElement;
+      if (target.closest("button") || target.closest("[data-drag]")) {
+        return;
+      }
+      onClick();
+    }, [onClick]);
+
+    const handleAddToAlbum = useCallback((e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onAddToAlbum();
+    }, [onAddToAlbum]);
 
     return (
       <div
@@ -227,19 +236,10 @@ export default function PhotosPage() {
           isDragging ? "opacity-50 z-50" : ""
         }`}
       >
-        {/* Photo - with explicit touch handlers */}
+        {/* Photo container */}
         <div
           className="absolute inset-0 cursor-pointer"
-          onClick={(e) => {
-            // Only handle clicks on desktop
-            if ("ontouchstart" in window) return;
-
-            const target = e.target as HTMLElement;
-            if (target.closest("button") || target.closest("[data-drag]")) {
-              return;
-            }
-            onClick();
-          }}
+          onClick={handleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
@@ -251,7 +251,7 @@ export default function PhotosPage() {
           }}
         >
           {photo.url ? (
-            <SafeImage
+            <SafeImage 
               src={photo.url}
               alt={photo.title || "Photo"}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
@@ -265,7 +265,7 @@ export default function PhotosPage() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path
+                <path 
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
@@ -284,12 +284,8 @@ export default function PhotosPage() {
         </div>
 
         {/* Add to album button */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAddToAlbum();
-          }}
+        <button 
+          onClick={handleAddToAlbum}
           className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-0 group-hover:opacity-100"
           style={{ minHeight: "44px", minWidth: "44px" }}
           title="Add to Album"
@@ -300,7 +296,7 @@ export default function PhotosPage() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path
+            <path 
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
@@ -309,15 +305,14 @@ export default function PhotosPage() {
           </svg>
         </button>
 
-        {/* Drag handle - TOP RIGHT with forced positioning and transform override */}
-        <button
+        {/* Drag handle */}
+        <button 
           {...attributes}
           {...listeners}
           data-drag="true"
           style={{
             position: "absolute",
             top: "8px",
-            right: "8px",
             zIndex: 20,
             minHeight: "44px",
             minWidth: "44px",
@@ -332,7 +327,7 @@ export default function PhotosPage() {
             color: "white",
             touchAction: "none",
             cursor: "move",
-            transform: "none !important", // IMPORTANT: Override any transform
+            transform: "none !important",
           }}
           className="group-hover:opacity-100 hover:bg-opacity-90"
           title="Drag to reorder"
@@ -343,7 +338,7 @@ export default function PhotosPage() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path
+            <path 
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
@@ -352,6 +347,13 @@ export default function PhotosPage() {
           </svg>
         </button>
       </div>
+    );
+  }, (prevProps, nextProps) => {
+    // Custom comparison function - only re-render if photo data actually changed
+    return(
+      prevProps.photo.id === nextProps.photo.id &&
+      prevProps.photo.url === nextProps.photo.url &&
+      prevProps.photo.title === nextProps.photo.title
     );
   });
 
@@ -440,14 +442,16 @@ export default function PhotosPage() {
                 strategy={rectSortingStrategy}
               >
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {photos.map((photo, index) => (
-                    <SortablePhoto
-                      key={photo.id}
-                      photo={photo}
-                      onClick={() => openPhotoModal(photo, index)}
-                      onAddToAlbum={() => openAddToAlbumModal(photo)}
-                    />
-                  ))}
+                  {useMemo(() => 
+                    photos.map((photo, index) => (
+                      <SortablePhoto 
+                        key={photo.id}
+                        photo={photo}
+                        onClick={() => openPhotoModal(photo, index)}
+                        onAddToAlbum={() => openAddToAlbumModal(photo)}
+                      />
+                    )), [photos, openPhotoModal, openAddToAlbumModal]
+                  )}
                 </div>
               </SortableContext>
             </DndContext>
