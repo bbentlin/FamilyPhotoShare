@@ -28,7 +28,7 @@ export default function AlbumPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [album, setAlbum] = useState<Album | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -45,6 +45,8 @@ export default function AlbumPage({
   const albumId = resolvedParams.id;
 
   useEffect(() => {
+    if (loading) return;
+
     if (!user) {
       router.push("/login");
       return;
@@ -83,7 +85,7 @@ export default function AlbumPage({
     }
 
     fetchAlbumData();
-  }, [user, router, albumId]);
+  }, [user, , loading, router, albumId]);
 
   const handleDeleteAlbum = async () => {
     if (!album || isDeleting) return;

@@ -19,7 +19,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import SafeImage from "@/components/SafeImage";
 
 export default function NewAlbumPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [albumData, setAlbumData] = useState({
     title: "",
@@ -124,10 +124,14 @@ export default function NewAlbumPage() {
   };
 
   // Redirect if not authenticated
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+  }, [user, loading, router]);
 
   if (!isMounted) {
     return <LoadingSpinner />;

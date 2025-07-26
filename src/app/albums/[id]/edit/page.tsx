@@ -34,7 +34,7 @@ export default function EditAlbumPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [album, setAlbum] = useState<Album | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +58,8 @@ export default function EditAlbumPage({
   const albumId = resolvedParams.id;
 
   useEffect(() => {
+    if (loading) return;
+
     if (!user) {
       router.push("/login");
       return;
@@ -69,7 +71,7 @@ export default function EditAlbumPage({
     };
 
     fetchData();
-  }, [user, router, albumId]);
+  }, [user, loading, router, albumId]);
 
   const fetchAlbumData = async () => {
     try {

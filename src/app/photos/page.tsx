@@ -30,7 +30,7 @@ import SafeImage from "@/components/SafeImage";
 import PhotoModal from "@/components/PhotoModal";
 
 export default function PhotosPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,6 +54,9 @@ export default function PhotosPage() {
   );
 
   useEffect(() => {
+    // Don't redirect while auth is still loading
+    if (loading) return;
+
     if (!user) {
       router.push("/login");
       return;
@@ -76,7 +79,7 @@ export default function PhotosPage() {
               orderBy("title", "asc")
             );
             break;
-          default: // newest
+          default:
             photosQuery = query(
               collection(db, "photos"),
               orderBy("createdAt", "desc")
@@ -88,7 +91,6 @@ export default function PhotosPage() {
           id: doc.id,
           ...doc.data(),
         })) as Photo[];
-        setPhotos(photosData);
       } catch (error: unknown) {
         console.error("Error fetching photos:", error);
       } finally {
@@ -97,7 +99,7 @@ export default function PhotosPage() {
     }
 
     fetchAllPhotos();
-  }, [user, router, sortBy]);
+  }, [user, loading, router, sortBy]);
 
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
@@ -353,7 +355,7 @@ export default function PhotosPage() {
     );
   });
 
-  if (isLoading) {
+  if (loading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">

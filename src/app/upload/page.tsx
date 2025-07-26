@@ -27,7 +27,7 @@ interface PhotoFile {
 }
 
 export default function UploadPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [selectedFiles, setSelectedFiles] = useState<PhotoFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -72,10 +72,14 @@ export default function UploadPage() {
 
   // Redirect handling
   useEffect(() => {
-    if (isMounted && !user) {
+    if (!isMounted) return;
+
+    if (loading) return;
+
+    if (!user) {
       router.push("/login");
     }
-  }, [user, router, isMounted]);
+  }, [user, router, isMounted, loading]); 
 
   useEffect(() => {
     return () => {

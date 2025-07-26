@@ -19,17 +19,21 @@ export default function FamilyPage() {
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
       router.push("/login");
+      return;
     }
   }, [user, loading, router]);
 
   // Fetch famly members
   useEffect(() => {
-    if (user) {
-      fetchFamilyMembers();
-    }
-  }, [user]);
+    if (loading) return;
+    if (!user) return;
+
+    fetchFamilyMembers();
+  }, [user, loading]);
 
   const fetchFamilyMembers = async () => {
     try {
