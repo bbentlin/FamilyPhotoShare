@@ -1,11 +1,17 @@
 "use client";
 
-import { useState, useEffect, memo, lazy, Suspense, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  lazy,
+  Suspense,
+} from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { collection, query, orderBy, limit, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   DndContext,
@@ -23,26 +29,43 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import SafeImage from "@/components/SafeImage";
-import Comments from "@/components/Comments";
+import PhotoImage from "@/components/PhotoImage";
+
+// CACHING IMPORTS
+import { useCachedAlbums } from "@/hooks/useCachedAlbums";
+import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
+import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 
 // Lazy load modals
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
-// Sortable Photo Component
+const ModalLoadingSpinner = () => (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      <span className="text-gray-700 dark:text-gray-300">Loading...</span>
+    </div>
+  </div>
+);
+
 function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: photo.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: photo.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  // Track if we're in a drag operation
   const [isDragOperation, setIsDragOperation] = useState(false);
 
   const handleContainerTouchStart = (e: React.TouchEvent) => {
@@ -51,7 +74,6 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
       return;
     }
 
-    // Set timeout to detect drag vs tap
     const touchStartTime = Date.now();
     const startX = e.touches[0].clientX;
     const startY = e.touches[0].clientY;
@@ -63,46 +85,37 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
         Math.pow(moveX - startX, 2) + Math.pow(moveY - startY, 2)
       );
 
-      // If moved more than 10px, consider it a drag
       if (distance > 10) {
         setIsDragOperation(true);
-        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener("touchmove", handleTouchMove);
       }
     };
 
     const handleTouchEnd = () => {
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-
-      // Reset drag operation flag after a delay
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
       setTimeout(() => setIsDragOperation(false), 100);
     };
 
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleTouchEnd);
   };
 
   const handleContainerTouchEnd = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-    
-    // Don't open modal if:
-    // 1. We're dragging
-    // 2. This was detected as a drag operation
-    // 3. Clicking on a button
+
     if (isDragging || isDragOperation || target.closest("button")) {
       e.preventDefault();
       e.stopPropagation();
       return;
     }
 
-    // Only open modal for actual taps
     e.preventDefault();
     e.stopPropagation();
     setTimeout(() => onClick(), 10);
   };
 
   const handleClick = (e: React.MouseEvent) => {
-    // Don't open modal if dragging
     if (isDragging || isDragOperation) {
       e.preventDefault();
       e.stopPropagation();
@@ -120,30 +133,31 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
       style={style}
       {...attributes}
       className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
-        isDragging ? 'opacity-50 z-50' : ''
+        isDragging ? "opacity-50 z-50" : ""
       }`}
     >
       {/* Main photo container - only handles taps, not drags */}
       <div
         className="absolute inset-0 cursor-pointer"
         style={{
-          touchAction: isDragging ? 'none' : 'manipulation',
-          WebkitTouchCallout: 'none',
-          WebkitUserSelect: 'none',
-          userSelect: 'none',
-          WebkitTapHighlightColor: 'transparent',
-          pointerEvents: isDragging ? 'none' : 'auto'
+          touchAction: isDragging ? "none" : "manipulation",
+          WebkitTouchCallout: "none",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          WebkitTapHighlightColor: "transparent",
+          pointerEvents: isDragging ? "none" : "auto",
         }}
         onClick={handleClick}
         onTouchStart={handleContainerTouchStart}
         onTouchEnd={handleContainerTouchEnd}
       >
         {photo.url ? (
-          <SafeImage
+          <PhotoImage
             src={photo.url}
             alt={photo.title || "Photo"}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-pointer"
-            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            fill={true}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         ) : (
           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer">
@@ -182,9 +196,9 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
               }}
               className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
               style={{
-                touchAction: 'manipulation',
-                minHeight: '44px',
-                minWidth: '44px'
+                touchAction: "manipulation",
+                minHeight: "44px",
+                minWidth: "44px",
               }}
               title="Add to Album"
             >
@@ -207,18 +221,17 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
 
         {/* Separate drag handle - only this area is draggable */}
         <div
-          {...attributes}
           {...listeners}
           className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
           style={{
-            touchAction: 'none', // Allow dragging
-            background: 'rgba(0, 0, 0, 0.7)',
-            borderRadius: '6px',
-            minHeight: '44px',
-            minWidth: '44px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+            touchAction: "none", // Allow dragging
+            background: "rgba(0, 0, 0, 0.7)",
+            borderRadius: "6px",
+            minHeight: "44px",
+            minWidth: "44px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           title="Drag to reorder"
           onTouchStart={(e) => {
@@ -226,63 +239,85 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
             e.stopPropagation();
           }}
         >
-            <svg
-              className="h-4 w-4 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8h16M4 16h16"
-              />
-            </svg>
+          <svg
+            className="h-4 w-4 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 8h16M4 16h16"
+            />
+          </svg>
         </div>
       </div>
     </div>
   );
 }
 
-const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout;
-  return function executedFunction(...args: any[]) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-};
-
 export default function Dashboard() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const [recentPhotos, setRecentPhotos] = useState<Photo[]>([]);
-  const [albums, setAlbums] = useState<Album[]>([]);
+
+  const recentPhotosQuery = useMemo(() => {
+    if (!user) return null;
+    return query(
+      collection(db, "photos"),
+      orderBy("createdAt", "desc"),
+      limit(12)
+    );
+  }, [user]);
+
+  const {
+    data: recentPhotosData,
+    loading: photosLoading,
+    isStale: photosStale,
+  } = useCachedFirebaseQuery<Photo>(recentPhotosQuery, {
+    cacheKey: "recent_photos",
+    cacheTtl: CACHE_CONFIGS.recent.ttl,
+    enableRealtime: true,
+    staleWhileRevalidate: true,
+  });
+
+  const {
+    data: albums,
+    loading: albumsLoading,
+    isStale: albumsStale,
+  } = useCachedAlbums(true);
+
+  // For now, keep family members as is until we create the proper structure
   const [familyMembers, setFamilyMembers] = useState<
     Array<{ id: string; [key: string]: any }>
   >([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Local state for photos (for drag and drop)
+  const [photos, setPhotos] = useState<Photo[]>([]);
+
+  useEffect(() => {
+    setPhotos(recentPhotosData || []);
+  }, [recentPhotosData]);
 
   // Modal state
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
-
-  // Add these state variables after your existing state declarations
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
 
-  // Drag and drop sensors
+  // Sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Combined loading state
+  const isLoading =
+    loading || (photosLoading && photos.length === 0) || albumsLoading;
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -291,113 +326,18 @@ export default function Dashboard() {
     }
   }, [user, loading, router]);
 
-  // Fetch data from Firestore
-  const debouncedFetchData = useCallback(
-    debounce(async () => {
-      if (!user || !db) return;
-
-      try {
-        const [photoSnapshot, albumSnapshot] = await Promise.all([
-          getDocs(
-            query(
-              collection(db, "photos"),
-              orderBy("createdAt", "desc"),
-              limit(6)
-            )
-          ),
-          getDocs(
-            query(
-              collection(db, "albums"),
-              orderBy("updatedAt", "desc"),
-              limit(4)
-            )
-          ),
-        ]);
-
-        setRecentPhotos(
-          photoSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Photo[]
-        );
-        setAlbums(
-          albumSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Album[]
-        );
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300),
-    [user, db]
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function fetchData() {
-      if (!user) return;
-
-      try {
-        setIsLoading(true);
-
-        // Fetch data with timeout
-        await Promise.race([
-          debouncedFetchData(),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), 10000)
-          ),
-        ]);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        // Set empty arrays instead of hanging
-        setRecentPhotos([]);
-        setAlbums([]);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    if (user && !loading) {
-      fetchData();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user, loading, debouncedFetchData]);
-
-  // Handle drag end for photo reordering
-  const handleDragEnd = async (event: any) => {
+  // Handle drag end
+  const handleDragEnd = (event: any) => {
     const { active, over } = event;
-
     if (active.id !== over.id) {
-      const oldIndex = recentPhotos.findIndex(
-        (photo) => photo.id === active.id
-      );
-      const newIndex = recentPhotos.findIndex((photo) => photo.id === over.id);
-
-      const newPhotos = arrayMove(recentPhotos, oldIndex, newIndex);
-      setRecentPhotos(newPhotos);
-
-      // Update the order in the local state
-      try {
-        console.log(
-          "Photos reordered:",
-          newPhotos.map((p) => p.title)
-        );
-      } catch (error: unknown) {
-        console.error("Error updating photo order:", error);
-      }
+      const oldIndex = photos.findIndex((photo) => photo.id === active.id);
+      const newIndex = photos.findIndex((photo) => photo.id === over.id);
+      const newPhotos = arrayMove(photos, oldIndex, newIndex);
+      setPhotos(newPhotos);
     }
   };
 
-  // Photo modal funcions
+  // Modal functions
   const openPhotoModal = (photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
@@ -411,19 +351,18 @@ export default function Dashboard() {
     if (selectedPhotoIndex > 0) {
       const newIndex = selectedPhotoIndex - 1;
       setSelectedPhotoIndex(newIndex);
-      setSelectedPhoto(recentPhotos[newIndex]);
+      setSelectedPhoto(photos[newIndex]);
     }
   };
 
   const goToNextPhoto = () => {
-    if (selectedPhotoIndex < recentPhotos.length - 1) {
+    if (selectedPhotoIndex < photos.length - 1) {
       const newIndex = selectedPhotoIndex + 1;
       setSelectedPhotoIndex(newIndex);
-      setSelectedPhoto(recentPhotos[newIndex]);
+      setSelectedPhoto(photos[newIndex]);
     }
   };
 
-  // Add these functions after your existing photo modal functions
   const openAddToAlbumModal = (photo: Photo) => {
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
@@ -435,12 +374,10 @@ export default function Dashboard() {
   };
 
   const handleAlbumSuccess = () => {
-    // Optionally refresh the photos data
     closeAddToAlbumModal();
   };
 
-  // Update the loading screen
-  if (loading || isLoading) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <LoadingSpinner message="Loading your photos..." />
@@ -450,14 +387,17 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Welcome back,{" "}
             {user?.displayName || user?.email?.split("@")[0] || "Family Member"}
             !
+            {(photosStale || albumsStale) && (
+              <span className="ml-2 text-xs text-yellow-500">
+                (updating...)
+              </span>
+            )}
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Manage your family photos and memories
@@ -496,11 +436,11 @@ export default function Dashboard() {
 
             <Link
               href="/albums/new"
-              className="group flex flex-col items-center p-4 rounded-lg hover:bg-green-50 transition-colors"
+              className="group flex flex-col items-center p-4 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
             >
-              <div className="bg-green-100 group-hover:bg-green-200 p-3 rounded-full mb-3">
+              <div className="bg-green-100 dark:bg-green-900 group-hover:bg-green-200 dark:group-hover:bg-green-800 p-3 rounded-full mb-3">
                 <svg
-                  className="h-6 w-6 text-green-600"
+                  className="h-6 w-6 text-green-600 dark:text-green-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -513,18 +453,18 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-green-600">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-green-600 dark:group-hover:text-green-400">
                 Create Album
               </span>
             </Link>
 
             <Link
               href="/invite"
-              className="group flex flex-col items-center p-4 rounded-lg hover:bg-purple-50 transition-colors"
+              className="group flex flex-col items-center p-4 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
             >
-              <div className="bg-purple-100 group-hover:bg-purple-200 p-3 rounded-full mb-3">
+              <div className="bg-purple-100 dark:bg-purple-900 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 p-3 rounded-full mb-3">
                 <svg
-                  className="h-6 w-6 text-purple-600"
+                  className="h-6 w-6 text-purple-600 dark:text-purple-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -537,18 +477,18 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-purple-600">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 Invite Family
               </span>
             </Link>
 
             <Link
               href="/photos"
-              className="group flex flex-col items-center p-4 rounded-lg hover:bg-amber-50 transition-colors"
+              className="group flex flex-col items-center p-4 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
             >
-              <div className="bg-amber-100 group-hover:bg-amber-200 p-3 rounded-full mb-3">
+              <div className="bg-amber-100 dark:bg-amber-900 group-hover:bg-amber-200 dark:group-hover:bg-amber-800 p-3 rounded-full mb-3">
                 <svg
-                  className="h-6 w-6 text-amber-600"
+                  className="h-6 w-6 text-amber-600 dark:text-amber-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -561,7 +501,7 @@ export default function Dashboard() {
                   />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700 group-hover:text-amber-600">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-amber-600 dark:group-hover:text-amber-400">
                 View All Photos
               </span>
             </Link>
@@ -569,12 +509,17 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Photos with Drag and Drop */}
+          {/* Recent Photos */}
           <div className="lg:col-span-2">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Recent Photos
+                  {photosStale && (
+                    <span className="text-xs text-yellow-500 ml-2">
+                      (updating...)
+                    </span>
+                  )}
                 </h2>
                 <div className="flex items-center gap-4">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -589,18 +534,18 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {recentPhotos.length > 0 ? (
+              {photos.length > 0 ? (
                 <DndContext
                   sensors={sensors}
                   collisionDetection={closestCenter}
                   onDragEnd={handleDragEnd}
                 >
                   <SortableContext
-                    items={recentPhotos.map((p) => p.id)}
+                    items={photos.map((p) => p.id)}
                     strategy={rectSortingStrategy}
                   >
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {recentPhotos.map((photo, index) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {photos.map((photo, index) => (
                         <SortablePhoto
                           key={photo.id}
                           photo={photo}
@@ -640,13 +585,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Sidebar - Albums and Family */}
+          {/* Sidebar */}
           <div className="space-y-8">
             {/* Albums */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Albums
+                  {albumsStale && (
+                    <span className="text-xs text-yellow-500 ml-2">
+                      (updating...)
+                    </span>
+                  )}
                 </h2>
                 <Link
                   href="/albums"
@@ -666,11 +616,13 @@ export default function Dashboard() {
                     >
                       <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-600 mr-3">
                         {album.coverPhoto ? (
-                          <SafeImage 
+                          <PhotoImage
                             src={album.coverPhoto}
                             alt={album.title}
                             className="w-12 h-12 object-cover rounded"
-                            loading="lazy"
+                            width={48}
+                            height={48}
+                            sizes="48px"
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
@@ -716,7 +668,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Family Members */}
+            {/* Family Members - keep existing implementation for now */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -735,11 +687,13 @@ export default function Dashboard() {
                   <div key={member.id} className="flex flex-col items-center">
                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-600 mb-2 flex items-center justify-center">
                       {member.photoUrl ? (
-                        <SafeImage 
+                        <PhotoImage
                           src={member.photoUrl}
                           alt={member.name}
                           className="w-10 h-10 rounded-full object-cover"
-                          loading="lazy"
+                          width={40}
+                          height={40}
+                          sizes="40px"
                         />
                       ) : (
                         <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">
@@ -796,9 +750,9 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Photo Modal */}
+      {/* Modals */}
       {selectedPhoto && (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<ModalLoadingSpinner />}>
           <PhotoModal
             photo={selectedPhoto}
             isOpen={true}
@@ -806,19 +760,20 @@ export default function Dashboard() {
             onPrevious={goToPreviousPhoto}
             onNext={goToNextPhoto}
             hasPrevious={selectedPhotoIndex > 0}
-            hasNext={selectedPhotoIndex < recentPhotos.length - 1}
+            hasNext={selectedPhotoIndex < photos.length - 1}
           />
         </Suspense>
       )}
 
-      {/* Add to Album Modal */}
       {showAddToAlbumModal && selectedPhotoForAlbum && (
-        <AddToAlbumModal
-          photo={selectedPhotoForAlbum}
-          isOpen={showAddToAlbumModal}
-          onClose={closeAddToAlbumModal}
-          onSuccess={handleAlbumSuccess}
-        />
+        <Suspense fallback={<ModalLoadingSpinner />}>
+          <AddToAlbumModal
+            photo={selectedPhotoForAlbum}
+            isOpen={showAddToAlbumModal}
+            onClose={closeAddToAlbumModal}
+            onSuccess={handleAlbumSuccess}
+          />
+        </Suspense>
       )}
     </div>
   );

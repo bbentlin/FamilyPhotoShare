@@ -1,503 +1,510 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import {
-  collection,
-  getDocs,
-  query,
-  addDoc,
-  serverTimestamp,
-  orderBy,
-} from "firebase/firestore";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { storage, db } from "@/lib/firebase";
-import Link from "next/link";
-import ThemeToggle from "@/components/ThemeToggle";
+import { toast } from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import SafeImage from "@/components/SafeImage";
-import { sendNotification } from "@/lib/notifications";
 
-interface PhotoFile {
+// CACHING IMPORTS
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+
+interface UploadingFile {
+  id: string;
   file: File;
-  preview: string;
-  title: string;
-  description: string;
+  progress: number;
+  url?: string;
+  error?: string;
 }
 
 export default function UploadPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [selectedFiles, setSelectedFiles] = useState<PhotoFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{
-    [key: string]: number;
-  }>({});
-  const [albumTitle, setAlbumTitle] = useState("");
-  const [error, setError] = useState("");
-  const [albums, setAlbums] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
-  const [selectedAlbum, setSelectedAlbum] = useState<string>("");
-  const [isMounted, setIsMounted] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const [dragActive, setDragActive] = useState(false);
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    async function fetchAlbums() {
-      if (!user || !db) return;
+  // Handle file upload
+  const uploadFile = useCallback(
+    async (file: File, fileId: string) => {
+      if (!user) return;
 
       try {
-        const albumsQuery = query(
-          collection(db, "albums"),
-          orderBy("updatedAt", "desc")
+        // Update progress to show upload starting
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 5 } : f))
         );
-        const albumSnapshot = await getDocs(albumsQuery);
-        const albumsData = albumSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setAlbums(albumsData);
-      } catch (error: unknown) {
-        console.error("Error fetching albums:", error);
-        setAlbums([]);
-      }
-    }
-
-    fetchAlbums();
-  }, [user]);
-
-  // Redirect handling
-  useEffect(() => {
-    if (!isMounted) return;
-
-    if (loading) return;
-
-    if (!user) {
-      router.push("/login");
-    }
-  }, [user, router, isMounted, loading]); 
-
-  useEffect(() => {
-    return () => {
-      selectedFiles.forEach((file) => {
-        if (file.preview) {
-          URL.revokeObjectURL(file.preview);
-        }
-      });
-    };
-  }, []);
-
-  // Early return for mounting
-  if (!isMounted) {
-    return <LoadingSpinner message="Loading..." />;
-  }
-
-  // Early return for authentication
-  if (!user) {
-    return <LoadingSpinner message="Redirecting to login..." />; 
-  }
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-
-    // Filter for image files only
-    const imageFiles = files.filter((file) => file.type.startsWith("image/"));
-
-    if (imageFiles.length !== files.length) {
-      setError("Only image files are allowed");
-      return;
-    }
-
-    // Create preview objects
-    const newFiles: PhotoFile[] = imageFiles.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-      title: file.name.split(".")[0], // Remove extension
-      description: "",
-    }));
-
-    setSelectedFiles((prev) => [...prev, ...newFiles]);
-    setError("");
-  };
-
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => {
-      // Clean up the preview URL
-      URL.revokeObjectURL(prev[index].preview);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  const updateFileMetadata = (
-    index: number,
-    field: "title" | "description",
-    value: string
-  ) => {
-    setSelectedFiles((prev) =>
-      prev.map((file, i) => (i === index ? { ...file, [field]: value } : file))
-    );
-  };
-
-  const uploadFiles = async () => {
-    if (!user || selectedFiles.length === 0) return;
-
-    setIsUploading(true);
-    setError("");
-
-    try {
-      const uploadedPhotos = [];
-      const albumArray = selectedAlbum ? [selectedAlbum] : [];
-
-      // Upload each file
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const photoFile = selectedFiles[i];
-        const fileId = `${Date.now()}_${i}_${photoFile.file.name}`;
 
         // Create storage reference
-        const storageRef = ref(storage, `photos/${user.uid}/${fileId}`);
+        const timestamp = Date.now();
+        const fileName = `${timestamp}-${file.name.replace(
+          /[^a-zA-Z0-9.-]/g,
+          "_"
+        )}`;
+        const storageRef = ref(storage, `photos/${user.uid}/${fileName}`);
 
-        // Upload file
-        setUploadProgress((prev) => ({ ...prev, [fileId]: 0 }));
+        // Upload file to storage
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 30 } : f))
+        );
 
-        const snapshot = await uploadBytes(storageRef, photoFile.file);
+        const snapshot = await uploadBytes(storageRef, file);
+
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 60 } : f))
+        );
+
+        // Get download URL
         const downloadURL = await getDownloadURL(snapshot.ref);
 
-        //Create document in Firestore
-        const photoDoc = await addDoc(collection(db, "photos"), {
-          title: photoFile.title || "Untitled Photo",
-          description: photoFile.description || "",
+        setUploadingFiles((prev) =>
+          prev.map((f) => (f.id === fileId ? { ...f, progress: 80 } : f))
+        );
+
+        // Save photo metadata to Firestore
+        const photoData = {
           url: downloadURL,
-          fileName: photoFile.file.name,
-          fileSize: photoFile.file.size,
+          title: file.name.replace(/\.[^/.]+$/, ""), // Remove file extension
+          description: "",
           uploadedBy: user.uid,
-          uploadedByName: user.displayName || user.email,
+          uploadedByName: user.displayName || user.email || "Unknown",
           createdAt: serverTimestamp(),
-          albums: albumArray,
-          albumId: null, // I'll implement albums later
-          sharedWith: [], // Array of user IDs who can view this photo
+          updatedAt: serverTimestamp(),
+          size: file.size,
+          type: file.type,
+          fileName: fileName,
           tags: [],
           likes: [],
           comments: [],
-        });
+          albumId: null,
+        };
 
-        uploadedPhotos.push({
-          id: photoDoc.id,
-          url: downloadURL,
-          title: photoFile.title,
-        });
+        await addDoc(collection(db, "photos"), photoData);
 
-        setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
+        // INVALIDATE CACHE after successful upload
+        CacheInvalidationManager.invalidateForAction("photo-upload", user.uid);
+
+        // Update progress to complete
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId ? { ...f, progress: 100, url: downloadURL } : f
+          )
+        );
+
+        toast.success(`${file.name} uploaded successfully!`);
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId ? { ...f, error: "Upload failed" } : f
+          )
+        );
+        toast.error(`Failed to upload ${file.name}`);
       }
+    },
+    [user]
+  );
 
-      // If album title is provided, create an album
-      if (albumTitle.trim()) {
-        await addDoc(collection(db, "albums"), {
-          title: albumTitle,
-          description: "",
-          createdBy: user.uid,
-          createdByName: user.displayName || user.email,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          photos: uploadedPhotos.map((photo) => photo.id),
-          photoCount: uploadedPhotos.length,
-          coverPhoto: uploadedPhotos[0]?.url || null,
-          sharedWith: [],
-          isPublic: false,
-        });
-      }
-
-      // Clean up preview URLs
-      selectedFiles.forEach((file) => {
-        if (file.preview) {
-          URL.revokeObjectURL(file.preview);
+  // Handle file selection
+  const handleFiles = useCallback(
+    (files: FileList) => {
+      const validFiles = Array.from(files).filter((file) => {
+        // Check file type
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} is not an image file`);
+          return false;
         }
+
+        // Check file size (e.g., 10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} is too large (max 10MB)`);
+          return false;
+        }
+
+        return true;
       });
 
-      // Clear selected files
-      setSelectedFiles([]);
+      if (validFiles.length === 0) return;
 
-      // Redirect to dashboard
-      router.push("/dashboard");
+      // Add files to uploading state
+      const newUploadingFiles: UploadingFile[] = validFiles.map((file) => ({
+        id: `${Date.now()}-${Math.random()}`,
+        file,
+        progress: 0,
+      }));
 
-      if (uploadedPhotos.length > 0) {
-        await sendNotification({
-          type: 'new_upload',
-          title: 'New Photos Uploaded',
-          message: `${user.displayName || user.email} uploaded ${uploadedPhotos.length} new photo${uploadedPhotos.length > 1 ? 's' : ''} ${albumTitle ? `to album "${albumTitle}"` : ''}.`,
-          triggeredBy: user.uid,
-          triggeredByName: user.displayName || user.email || 'Unknown User',
-        });
-      }
+      setUploadingFiles((prev) => [...prev, ...newUploadingFiles]);
 
-    } catch (error: unknown) {
-      console.error("Upload error:", error);
-      setError("Failed to upload photos. Please try again.");
-    } finally {
-      setIsUploading(false);
-      setUploadProgress({});
+      // Start uploading each file
+      newUploadingFiles.forEach((uploadingFile) => {
+        uploadFile(uploadingFile.file, uploadingFile.id);
+      });
+    },
+    [uploadFile]
+  );
+
+  // Drag and drop handlers
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
     }
-  };
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDragActive(false);
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    },
+    [handleFiles]
+  );
+
+  // File input change handler
+  const handleFileInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFiles(e.target.files);
+      }
+    },
+    [handleFiles]
+  );
+
+  // Remove completed/failed uploads
+  const removeUpload = useCallback((fileId: string) => {
+    setUploadingFiles((prev) => prev.filter((f) => f.id !== fileId));
+  }, []);
+
+  // Redirect if not authenticated
+  if (!loading && !user) {
+    router.push("/login");
+    return null;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <LoadingSpinner message="Loading..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Upload Photos
           </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Share your memories with family
+          </p>
+        </div>
 
-          {/* Album Title Input */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Album Information
-            </h2>
-            <div>
-              <label
-                htmlFor="albumTitle"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Album Title
-              </label>
-              <input
-                type="text"
-                value={albumTitle}
-                onChange={(e) => setAlbumTitle(e.target.value)}
-                placeholder="e.g., Summer Vacation 2024"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                disabled={isUploading}
-              />
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Leave empty to upload individual photos without creating an album
-              </p>
-            </div>
-          </div>
+        {/* Upload Area */}
+        <div className="mb-8">
+          <div
+            className={`relative border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+              dragActive
+                ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileInput}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
 
-          {/* Album Selection */}
-          {albums.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Add to Existing Album
-              </h2>
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <svg
+                  className={`h-16 w-16 transition-colors ${
+                    dragActive
+                      ? "text-blue-500"
+                      : "text-gray-400 dark:text-gray-500"
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+
               <div>
-                <label
-                  htmlFor="album"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Select Album (Optional)
-                </label>
-                <select
-                  id="album"
-                  value={selectedAlbum}
-                  onChange={(e) => setSelectedAlbum(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  disabled={isUploading}
-                >
-                  <option value="">No Album</option>
-                  {albums.map((album) => (
-                    <option key={album.id} value={album.id}>
-                      {album.title}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  You can also add photos to album later
+                <p className="text-lg font-medium text-gray-900 dark:text-white">
+                  {dragActive ? "Drop your photos here!" : "Upload your photos"}
+                </p>
+                <p className="text-gray-500 dark:text-gray-400 mt-2">
+                  Drag and drop your images here, or click to browse
+                </p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                  Supports: JPG, PNG, GIF up to 10MB each
                 </p>
               </div>
-            </div>
-          )}
 
-          {/* File Upload Area */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Select Photos
-            </h2>
-
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4"
-                stroke="currentColor"
-                fill="none"
-                viewBox="0 0 48 48"
+              <button
+                type="button"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium"
               >
-                <path
-                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <div className="text-xl text-gray-900 dark:text-white mb-2">
-                Drop photos here or click to browse
-              </div>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Support for JPG, PNG, GIF files
-              </p>
-
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                id="file-upload"
-                disabled={isUploading}
-              />
-              <label
-                htmlFor="file-upload"
-                className={`cursor-pointer inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                  isUploading
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
-              >
+                <svg
+                  className="h-5 w-5 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
                 Choose Files
-              </label>
+              </button>
             </div>
           </div>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4 mb-6">
-              <p className="text-red-800 dark:text-red-200">{error}</p>
-            </div>
-          )}
+        {/* Upload Progress */}
+        {uploadingFiles.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Upload Progress
+            </h2>
 
-          {/* Selected Files Preview */}
-          {selectedFiles.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Selected Photos ({selectedFiles.length})
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {selectedFiles.map((photoFile, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden"
-                  >
-                    <div 
-                      className="relative h-48"
-                      style={{ touchAction: 'manipulation' }}
-                    >
-                      <SafeImage 
-                        src={photoFile.preview}
-                        alt="Preview"
+            <div className="space-y-4">
+              {uploadingFiles.map((uploadingFile) => (
+                <div
+                  key={uploadingFile.id}
+                  className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                >
+                  {/* File Preview */}
+                  <div className="flex-shrink-0 w-12 h-12 bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden">
+                    {uploadingFile.url ? (
+                      <img
+                        src={uploadingFile.url}
+                        alt={uploadingFile.file.name}
                         className="w-full h-full object-cover"
                       />
-                      <button
-                        onClick={() => removeFile(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
-                        style={{
-                          minHeight: '44px',
-                          minWidth: '44px',
-                          touchAction: 'manipulation'
-                        }}
-                        disabled={isUploading}
-                      >
-                        x
-                      </button>
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Title
-                        </label>
-                        <input
-                          type="text"
-                          value={photoFile.title}
-                          onChange={(e) =>
-                            updateFileMetadata(index, "title", e.target.value)
-                          }
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          disabled={isUploading}
-                        />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg
+                          className="h-6 w-6 text-gray-400"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Description (Optional)
-                        </label>
-                        <textarea
-                          value={photoFile.description}
-                          onChange={(e) =>
-                            updateFileMetadata(
-                              index,
-                              "description",
-                              e.target.value
-                            )
-                          }
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          disabled={isUploading}
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Upload Button */}
-          {selectedFiles.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Ready to upload {selectedFiles.length} photo
-                    {selectedFiles.length > 1 ? "s" : ""}
-                  </p>
-                  {albumTitle && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      Will be added to album: &quot;{albumTitle}&quot;
+                  {/* File Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {uploadingFile.file.name}
                     </p>
-                  )}
-                  {selectedAlbum && albums.find(a => a.id === selectedAlbum) && (
-                    <p>
-                      Will be added to: &quot;{albums.find(a => a.id === selectedAlbum)?.title}&quot;
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {(uploadingFile.file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="flex-1 max-w-xs">
+                    {uploadingFile.error ? (
+                      <div className="text-red-600 dark:text-red-400 text-sm">
+                        {uploadingFile.error}
+                      </div>
+                    ) : uploadingFile.progress === 100 ? (
+                      <div className="text-green-600 dark:text-green-400 text-sm font-medium">
+                        ✓ Complete
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                          <span>Uploading...</span>
+                          <span>{uploadingFile.progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${uploadingFile.progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Remove Button */}
+                  {(uploadingFile.progress === 100 || uploadingFile.error) && (
+                    <button
+                      onClick={() => removeUpload(uploadingFile.id)}
+                      className="flex-shrink-0 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
                   )}
                 </div>
+              ))}
+            </div>
 
+            {/* Clear All Button */}
+            {uploadingFiles.some((f) => f.progress === 100 || f.error) && (
+              <div className="mt-4 flex justify-end">
                 <button
-                  onClick={uploadFiles}
-                  disabled={isUploading}
-                  className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                    isUploading
-                      ? "bg-gray-400 cursor-not-allowed text-white"
-                      : "bg-blue-600 hover:bg-blue-700 text-white"
-                  }`}
+                  onClick={() =>
+                    setUploadingFiles((prev) =>
+                      prev.filter((f) => f.progress !== 100 && !f.error)
+                    )
+                  }
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 >
-                  {isUploading ? "Uploading..." : "Upload Photos"}
+                  Clear completed
                 </button>
               </div>
+            )}
+          </div>
+        )}
 
-              {/* Upload Progress */}
-              {isUploading && (
-                <div className="mt-4">
-                  <LoadingSpinner message="Uploading photos..." />
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${
-                          Object.keys(uploadProgress).length > 0
-                            ? (Object.values(uploadProgress).reduce((a, b) => a + b, 0) /
-                              selectedFiles.length)
-                            : 0
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
+        {/* Quick Actions */}
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            What's next?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => router.push("/photos")}
+              className="p-4 text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                  <svg
+                    className="h-5 w-5 text-blue-600 dark:text-blue-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
                 </div>
-              )}
-            </div>
-          )}
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    View Photos
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    See all your uploaded photos
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/albums/new")}
+              className="p-4 text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-100 dark:bg-green-900 p-2 rounded-lg">
+                  <svg
+                    className="h-5 w-5 text-green-600 dark:text-green-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Create Album
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Organize photos into albums
+                  </p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="p-4 text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-lg">
+                  <svg
+                    className="h-5 w-5 text-purple-600 dark:text-purple-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2V7"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    Dashboard
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Back to main dashboard
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
         </div>
       </main>
     </div>

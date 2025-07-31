@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Photo } from "@/types";
 import SafeImage from "./SafeImage";
-import Comments from "./Comments";
+import PhotoImage from "./PhotoImage";
+
+const Comments = lazy(() => import("./Comments"));
 
 interface PhotoModalProps {
   photo: Photo;
@@ -179,25 +181,45 @@ export default function PhotoModal({
             )}
 
             {/* Main Image */}
-            <SafeImage
-              src={photo.url}
-              alt={photo.title || "Photo"}
-              className="max-w-full max-h-full object-contain transition-opacity duration-300"
-              onLoad={() => setIsImageLoaded(true)}
-              onError={() => setIsImageLoaded(true)}
-              loading="eager"
-            />
+            {photo.url ? (
+              <PhotoImage
+                src={photo.url}
+                alt={photo.title || "Photo"}
+                className="max-w-full max-h-full object-contain"
+                fill={true}
+                priority={true} // Modal images should load immediately
+                sizes="100vw"
+              />
+            ) : (
+              <SafeImage
+                src={photo.url}
+                alt={photo.title || "Photo"}
+                className="max-w-full max-h-full object-contain transition-opacity duration-300"
+                onLoad={() => setIsImageLoaded(true)}
+                onError={() => setIsImageLoaded(true)}
+                loading="eager"
+              />
+            )}
           </div>
 
           {/* COMMENTS (now full-width bottom) */}
           {showComments && (
-            <div className="w-full border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 overflow-y-auto">
+            <Suspense
+              fallback={
+                <div className="p-4 text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Loading comments...
+                  </p>
+                </div>
+              }
+            >
               <Comments
                 photoId={photo.id}
-                photoOwnerId={(photo as any).createdBy}
-                photoOwnerName={(photo as any).uploadedByName || "Unknown User"}
+                photoOwnerId={photo.createdBy}
+                photoOwnerName={photo.uploadedByName || "Unknown"}
               />
-            </div>
+            </Suspense>
           )}
         </div>
 

@@ -1,11 +1,8 @@
 "use client";
 
-// ADD: Import React for memoization and hooks
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { collection, getDocs, query, orderBy } from "@firebase/firestore";
-import { db } from "@/lib/firebase";
 import Link from "next/link";
 import {
   DndContext,
@@ -23,147 +20,47 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import AddToAlbumModal from "@/components/AddToAlbumModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Photo } from "@/types";
-import SafeImage from "@/components/SafeImage";
-import PhotoModal from "@/components/PhotoModal";
-import { Alfa_Slab_One } from "next/font/google";
+import { usePhotosWithPagination } from "@/hooks/usePhotosWithPagination";
+import InfiniteScrollGrid from "@/components/InfiniteScrollGrid";
+import PhotoImage from "@/components/PhotoImage";
+import VirtualPhotoGrid from "@/components/VirtualPhotoGrid";
+import VirtualPhotoItem from "@/components/VirtualPhotoItem";
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 
-export default function PhotosPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
-  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
-  const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
-  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
-    useState<Photo | null>(null);
+const PhotoModal = lazy(() => import("@/components/PhotoModal"));
+const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
-  // UNCHANGED: Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+const ModalLoadingSpinner = () => (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      <span className="text-gray-700 dark:text-gray-300">Loading...</span>
+    </div>
+  </div>
+);
 
-  useEffect(() => {
-    // Don't redirect while auth is still loading
-    if (loading) return;
+const AlbumModalLoadingSpinner = () => (
+  <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-3">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      <span className="text-gray-700 dark:text-gray-300">
+        Loading album options...
+      </span>
+    </div>
+  </div>
+);
 
-    if (!user) {
-      router.push("/login");
-      return;
-    }
-
-    async function fetchAllPhotos() {
-      try {
-        let photosQuery;
-
-        switch (sortBy) {
-          case "oldest":
-            photosQuery = query(
-              collection(db, "photos"),
-              orderBy("createdAt", "asc")
-            );
-            break;
-          case "title":
-            photosQuery = query(
-              collection(db, "photos"),
-              orderBy("title", "asc")
-            );
-            break;
-          default:
-            photosQuery = query(
-              collection(db, "photos"),
-              orderBy("createdAt", "desc")
-            );
-        }
-
-        const photoSnapshot = await getDocs(photosQuery);
-        const photosData = photoSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Photo[];
-      } catch (error: unknown) {
-        console.error("Error fetching photos:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    fetchAllPhotos();
-  }, [user, loading, router, sortBy]);
-
-  const handleDragEnd = (event: any) => {
-    const { active, over } = event;
-    if (active.id !== over.id) {
-      setPhotos((photos) =>
-        arrayMove(
-          photos,
-          photos.findIndex((p) => p.id === active.id),
-          photos.findIndex((p) => p.id === over.id)
-        )
-      );
-    }
-  };
-
-  const openPhotoModal = (photo: Photo, idx: number) => {
-    setSelectedPhoto(photo);
-    setSelectedPhotoIndex(idx);
-  };
-
-  const closePhotoModal = () => {
-    setSelectedPhoto(null);
-  };
-
-  const goToPreviousPhoto = () => {
-    if (selectedPhotoIndex > 0) {
-      const newIndex = selectedPhotoIndex - 1;
-      setSelectedPhotoIndex(newIndex);
-      setSelectedPhoto(photos[newIndex]);
-    }
-  };
-
-  const goToNextPhoto = () => {
-    if (selectedPhotoIndex < photos.length - 1) {
-      const newIndex = selectedPhotoIndex + 1;
-      setSelectedPhotoIndex(newIndex);
-      setSelectedPhoto(photos[newIndex]);
-    }
-  };
-
-  // Handlers for the album modal
-  const openAddToAlbumModal = (photo: Photo) => {
-    setSelectedPhotoForAlbum(photo);
-    setShowAddToAlbumModal(true);
-  };
-
-  const closeAddToAlbumModal = () => {
-    setShowAddToAlbumModal(false);
-    setSelectedPhotoForAlbum(null);
-  };
-
-  const handleAlbumSuccess = () => {
-    // Optionally refresh the photos data to show updated album info
-    // You could add a small refresh here or just close the modal
-  };
-
-  // Memoize the component to prevent unnecessary re-renders
-  const SortablePhoto = React.memo(function SortablePhoto({
+// SortablePhoto component 
+const SortablePhoto = React.memo(
+  function SortablePhoto({
     photo,
     onClick,
-    onAddToAlbum
+    onAddToAlbum,
   }: {
     photo: Photo;
-    onClick: () =>  void;
+    onClick: () => void;
     onAddToAlbum: () => void;
   }) {
     const {
@@ -198,35 +95,44 @@ export default function PhotosPage() {
       touchHandler.current.moved = true;
     }, []);
 
-    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-      const { moved, startTime } = touchHandler.current;
-      touchHandler.current.isTouching = false;
+    const handleTouchEnd = useCallback(
+      (e: React.TouchEvent) => {
+        const { moved, startTime } = touchHandler.current;
+        touchHandler.current.isTouching = false;
 
-      if (!moved && (Date.now() - startTime < 300)) {
-        const target = e.target as HTMLElement;
-        if (!target.closest("button") && !target.closest("[data-drag]")) {
-          e.preventDefault();
-          e.stopPropagation();
-          onClick();
+        if (!moved && Date.now() - startTime < 300) {
+          const target = e.target as HTMLElement;
+          if (!target.closest("button") && !target.closest("[data-drag]")) {
+            e.preventDefault();
+            e.stopPropagation();
+            onClick();
+          }
         }
-      }
-    }, [onClick]);
+      },
+      [onClick]
+    );
 
-    const handleClick = useCallback((e: React.MouseEvent) => {
-      if ('ontouchstart' in window) return;
+    const handleClick = useCallback(
+      (e: React.MouseEvent) => {
+        if ("ontouchstart" in window) return;
 
-      const target = e.target as HTMLElement;
-      if (target.closest("button") || target.closest("[data-drag]")) {
-        return;
-      }
-      onClick();
-    }, [onClick]);
+        const target = e.target as HTMLElement;
+        if (target.closest("button") || target.closest("[data-drag]")) {
+          return;
+        }
+        onClick();
+      },
+      [onClick]
+    );
 
-    const handleAddToAlbum = useCallback((e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onAddToAlbum();
-    }, [onAddToAlbum]);
+    const handleAddToAlbum = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onAddToAlbum();
+      },
+      [onAddToAlbum]
+    );
 
     return (
       <div
@@ -248,14 +154,17 @@ export default function PhotosPage() {
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
+            height: "100%",
+            width: "100%",
           }}
         >
           {photo.url ? (
-            <SafeImage 
+            <PhotoImage
               src={photo.url}
               alt={photo.title || "Photo"}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              loading="lazy"
+              fill={true}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           ) : (
             <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
@@ -265,7 +174,7 @@ export default function PhotosPage() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path 
+                <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
@@ -284,7 +193,7 @@ export default function PhotosPage() {
         </div>
 
         {/* Add to album button */}
-        <button 
+        <button
           onClick={handleAddToAlbum}
           className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-0 group-hover:opacity-100"
           style={{ minHeight: "44px", minWidth: "44px" }}
@@ -296,7 +205,7 @@ export default function PhotosPage() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
+            <path
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
@@ -306,13 +215,14 @@ export default function PhotosPage() {
         </button>
 
         {/* Drag handle */}
-        <button 
+        <button
           {...attributes}
           {...listeners}
           data-drag="true"
           style={{
             position: "absolute",
             top: "8px",
+            right: "8px",
             zIndex: 20,
             minHeight: "44px",
             minWidth: "44px",
@@ -338,7 +248,7 @@ export default function PhotosPage() {
             viewBox="0 0 24 24"
             stroke="currentColor"
           >
-            <path 
+            <path
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
@@ -348,16 +258,152 @@ export default function PhotosPage() {
         </button>
       </div>
     );
-  }, (prevProps, nextProps) => {
+  },
+  (prevProps, nextProps) => {
     // Custom comparison function - only re-render if photo data actually changed
-    return(
+    return (
       prevProps.photo.id === nextProps.photo.id &&
       prevProps.photo.url === nextProps.photo.url &&
       prevProps.photo.title === nextProps.photo.title
     );
-  });
+  }
+);
 
-  if (loading || isLoading) {
+export default function PhotosPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // State declarations - keep these at the top in consistent order
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "title">("newest");
+  const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
+  const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
+    useState<Photo | null>(null);
+  const [viewMode, setViewMode] = useState<"grid" | "virtual">("virtual");
+  const [useVirtualScrolling, setUseVirtualScrolling] = useState(true);
+
+  // Custom hook - keep this after state declarations
+  const {
+    photos: fetchedPhotos,
+    loading: photosLoading,
+    hasMore,
+    loadMore,
+    refresh,
+    error,
+  } = usePhotosWithPagination(20, sortBy);
+
+  // Local photos state for drag and drop
+  const [photos, setPhotos] = useState<Photo[]>([]);
+
+  // Effects - keep these after all state and hook declarations
+  useEffect(() => {
+    setPhotos(fetchedPhotos);
+  }, [fetchedPhotos]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.push("/login");
+    }
+  }, [user, loading, router]);
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Event handlers - memoize these
+  const handleDragEnd = useCallback((event: any) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setPhotos((photos) =>
+        arrayMove(
+          photos,
+          photos.findIndex((p) => p.id === active.id),
+          photos.findIndex((p) => p.id === over.id)
+        )
+      );
+    }
+  }, []);
+
+  const openPhotoModal = useCallback((photo: Photo, idx: number) => {
+    setSelectedPhoto(photo);
+    setSelectedPhotoIndex(idx);
+  }, []);
+
+  const closePhotoModal = useCallback(() => {
+    setSelectedPhoto(null);
+  }, []);
+
+  const goToPreviousPhoto = useCallback(() => {
+    if (selectedPhotoIndex > 0) {
+      const newIndex = selectedPhotoIndex - 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(photos[newIndex]);
+    }
+  }, [selectedPhotoIndex, photos]);
+
+  const goToNextPhoto = useCallback(() => {
+    if (selectedPhotoIndex < photos.length - 1) {
+      const newIndex = selectedPhotoIndex + 1;
+      setSelectedPhotoIndex(newIndex);
+      setSelectedPhoto(photos[newIndex]);
+    }
+  }, [selectedPhotoIndex, photos]);
+
+  const openAddToAlbumModal = useCallback((photo: Photo) => {
+    setSelectedPhotoForAlbum(photo);
+    setShowAddToAlbumModal(true);
+  }, []);
+
+  const closeAddToAlbumModal = useCallback(() => {
+    setShowAddToAlbumModal(false);
+    setSelectedPhotoForAlbum(null);
+  }, []);
+
+  const handleAlbumSuccess = useCallback(() => {
+    closeAddToAlbumModal();
+    // Invalidate cache to refresh data across the app
+    if (user) {
+      CacheInvalidationManager.invalidateForAction("photo-update", user.uid);
+      refresh(); // Use your existing refresh function
+    }
+  }, [closeAddToAlbumModal, user, refresh]);
+
+  // ADD MANUAL REFRESH WITH CACHE INVALIDATION
+  const handleRefresh = useCallback(() => {
+    if (user) {
+      CacheInvalidationManager.invalidateForAction("photo-refresh", user.uid);
+      refresh(); // Use your existing refresh function
+    }
+  }, [user, refresh]);
+
+  // Early returns
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || photosLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -382,7 +428,29 @@ export default function PhotosPage() {
                 ← Back to Dashboard
               </Link>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center space-x-4">
+              {/* ADD REFRESH BUTTON */}
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                title="Refresh photos"
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </header>
@@ -404,9 +472,13 @@ export default function PhotosPage() {
           <div className="mt-4 sm:mt-0">
             <select
               value={sortBy}
-              onChange={(e) =>
-                setSortBy(e.target.value as "newest" | "oldest" | "title")
-              }
+              onChange={(e) => {
+                const newSortBy = e.target.value as
+                  | "newest"
+                  | "oldest"
+                  | "title";
+                setSortBy(newSortBy);
+              }}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="newest">Newest First</option>
@@ -421,40 +493,92 @@ export default function PhotosPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between mb-6">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                Drag photos to rearrange or tap to view
+                Showing {photos.length} photos
+                {hasMore && " • Loading more..."}
               </span>
-              <Link
-                href="/albums/new"
-                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-              >
-                Create Album from Photos →
-              </Link>
+
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-4">
+                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode("virtual")}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      viewMode === "virtual"
+                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-300"
+                    }`}
+                  >
+                    Virtual
+                  </button>
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    className={`px-3 py-1 rounded text-sm transition-colors ${
+                      viewMode === "grid"
+                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                        : "text-gray-600 dark:text-gray-300"
+                    }`}
+                  >
+                    Standard
+                  </button>
+                </div>
+
+                <Link
+                  href="/albums/new"
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+                >
+                  Create Album from Photos →
+                </Link>
+              </div>
             </div>
 
-            {/* Unified grid with drag-and-drop + tap */}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={photos.map((p) => p.id)}
-                strategy={rectSortingStrategy}
+            {viewMode === "virtual" ? (
+              // Virtual Scrolling Grid
+              <VirtualPhotoGrid
+                photos={photos}
+                hasMore={hasMore}
+                loading={photosLoading}
+                onLoadMore={loadMore}
+                onPhotoClick={openPhotoModal}
+                onAddToAlbum={openAddToAlbumModal}
+                renderPhoto={({ photo, onClick, onAddToAlbum }) => (
+                  <VirtualPhotoItem
+                    photo={photo}
+                    onClick={onClick}
+                    onAddToAlbum={onAddToAlbum}
+                  />
+                )}
+              />
+            ) : (
+              // Standard Grid with Drag and Drop
+              <InfiniteScrollGrid
+                hasMore={hasMore}
+                loading={photosLoading}
+                onLoadMore={loadMore}
               >
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {useMemo(() => 
-                    photos.map((photo, index) => (
-                      <SortablePhoto 
-                        key={photo.id}
-                        photo={photo}
-                        onClick={() => openPhotoModal(photo, index)}
-                        onAddToAlbum={() => openAddToAlbumModal(photo)}
-                      />
-                    )), [photos, openPhotoModal, openAddToAlbumModal]
-                  )}
-                </div>
-              </SortableContext>
-            </DndContext>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={photos.map((p) => p.id)}
+                    strategy={rectSortingStrategy}
+                  >
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                      {photos.map((photo, index) => (
+                        <div key={photo.id} className="aspect-square w-full">
+                          <SortablePhoto
+                            photo={photo}
+                            onClick={() => openPhotoModal(photo, index)}
+                            onAddToAlbum={() => openAddToAlbumModal(photo)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              </InfiniteScrollGrid>
+            )}
           </div>
         ) : (
           <div className="text-center py-16">
@@ -489,25 +613,29 @@ export default function PhotosPage() {
 
       {/* Photo Modal */}
       {selectedPhoto && (
-        <PhotoModal
-          photo={selectedPhoto}
-          isOpen={true}
-          onClose={closePhotoModal}
-          onPrevious={goToPreviousPhoto}
-          onNext={goToNextPhoto}
-          hasPrevious={selectedPhotoIndex > 0}
-          hasNext={selectedPhotoIndex < photos.length - 1}
-        />
+        <Suspense fallback={<ModalLoadingSpinner />}>
+          <PhotoModal
+            photo={selectedPhoto}
+            isOpen={true}
+            onClose={closePhotoModal}
+            onPrevious={goToPreviousPhoto}
+            onNext={goToNextPhoto}
+            hasPrevious={selectedPhotoIndex > 0}
+            hasNext={selectedPhotoIndex < photos.length - 1}
+          />
+        </Suspense>
       )}
 
       {/* Add to Album Modal */}
       {showAddToAlbumModal && selectedPhotoForAlbum && (
-        <AddToAlbumModal
-          photo={selectedPhotoForAlbum}
-          isOpen={showAddToAlbumModal}
-          onClose={closeAddToAlbumModal}
-          onSuccess={handleAlbumSuccess}
-        />
+        <Suspense fallback={<AlbumModalLoadingSpinner />}>
+          <AddToAlbumModal
+            photo={selectedPhotoForAlbum}
+            isOpen={showAddToAlbumModal}
+            onClose={closeAddToAlbumModal}
+            onSuccess={handleAlbumSuccess}
+          />
+        </Suspense>
       )}
     </div>
   );

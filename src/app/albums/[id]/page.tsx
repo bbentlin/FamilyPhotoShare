@@ -1,170 +1,120 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import {
-  doc,
-  getDoc,
-  deleteDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { useParams } from "next/navigation";
+import { doc, collection, query, where, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Album, Photo } from "@/types";
 import Link from "next/link";
-import { use } from "react";
-import SetCoverPhotoModal from "@/components/SetCoverPhotoModal";
-import PhotoModal from "@/components/PhotoModal";
-import ThemeToggle from "@/components/ThemeToggle";
-import { Photo, Album } from "@/types";
+import PhotoImage from "@/components/PhotoImage";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import SafeImage from "@/components/SafeImage";
+import { toast } from "react-hot-toast";
 
-export default function AlbumPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+// CACHING IMPORTS
+import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
+import { useCachedFirebaseDoc } from "@/hooks/useCachedFirebaseDoc";
+import { CACHE_CONFIGS } from "@/lib/firebaseCache";
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+
+export default function AlbumPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [album, setAlbum] = useState<Album | null>(null);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showSetCoverModal, setShowSetCoverModal] = useState(false);
+  const params = useParams();
+  const albumId = params.id as string;
+
+  // State
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
-  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
-  // Unwrap params using React.use()
-  const resolvedParams = use(params);
-  const albumId = resolvedParams.id;
+  // CACHED ALBUM DATA
+  const albumDocRef = useMemo(
+    () => (albumId ? doc(db, "albums", albumId) : null),
+    [albumId]
+  );
 
+  const {
+    data: album,
+    loading: albumLoading,
+    error: albumError,
+    refetch: refetchAlbum,
+    isStale: albumIsStale,
+  } = useCachedFirebaseDoc<Album>(albumDocRef, {
+    cacheKey: `album_${albumId}`,
+    cacheTtl: CACHE_CONFIGS.albums.ttl,
+    enableRealtime: true,
+    staleWhileRevalidate: true,
+  });
+
+  // CACHED ALBUM PHOTOS
+  const photosQuery = useMemo(() => {
+    if (!albumId) return null;
+    return query(
+      collection(db, "photos"),
+      where("albumId", "==", albumId),
+      orderBy("createdAt", "desc")
+    );
+  }, [albumId]);
+
+  const {
+    data: photos,
+    loading: photosLoading,
+    error: photosError,
+    refetch: refetchPhotos,
+    isStale: photosIsStale,
+  } = useCachedFirebaseQuery<Photo>(photosQuery, {
+    cacheKey: `album_photos_${albumId}`,
+    cacheTtl: CACHE_CONFIGS.photos.ttl,
+    enableRealtime: true,
+    staleWhileRevalidate: true,
+  });
+
+  // Redirect if not authenticated
   useEffect(() => {
-    if (loading) return;
-
-    if (!user) {
+    if (!loading && !user) {
       router.push("/login");
-      return;
     }
+  }, [user, loading, router]);
 
-    async function fetchAlbumData() {
-      try {
-        // Fetch album details
-        const albumDoc = await getDoc(doc(db, "albums", albumId));
-
-        if (!albumDoc.exists()) {
-          router.push("/albums");
-          return;
-        }
-
-        const albumData = { id: albumDoc.id, ...albumDoc.data() } as Album;
-        setAlbum(albumData);
-
-        // Fetch photos in this album
-        const photosQuery = query(
-          collection(db, "photos"),
-          where("albums", "array-contains", albumId)
-        );
-        const photoSnapshot = await getDocs(photosQuery);
-        const photosData = photoSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Photo[];
-        setPhotos(photosData);
-      } catch (error: unknown) {
-        console.error("Error fetching album:", error);
-        router.push("/albums");
-      } finally {
-        setIsLoading(false);
-      }
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    if (user) {
+      CacheInvalidationManager.invalidateForAction("album-refresh", user.uid);
+      refetchAlbum();
+      refetchPhotos();
+      toast.success("Album refreshed!");
     }
+  }, [user, refetchAlbum, refetchPhotos]);
 
-    fetchAlbumData();
-  }, [user, , loading, router, albumId]);
-
-  const handleDeleteAlbum = async () => {
-    if (!album || isDeleting) return;
-
-    setIsDeleting(true);
-    try {
-      // Delete the album document
-      await deleteDoc(doc(db, "albums", album.id));
-
-      // Remove album reference from photos (if you're tracking that)
-      const updatePromises = photos.map((photo) => {
-        const updatedAlbums =
-          photo.albums?.filter((albumId: string) => albumId !== album.id) || [];
-        return updateDoc(doc(db, "photos", photo.id), {
-          albums: updatedAlbums,
-        });
-      });
-
-      await Promise.all(updatePromises);
-
-      // Redirect to albums page
-      router.push("/albums");
-    } catch (error: unknown) {
-      console.error("Error deleting album:", error);
-      alert("Failed to delete album. Please try again.");
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-
-  const handleCoverPhotoUpdate = (newCoverUrl: string) => {
-    setAlbum((prev) => (prev ? { ...prev, coverPhoto: newCoverUrl } : null));
-  };
-
-  const handleQuickSetCover = async (photoUrl: string) => {
-    try {
-      const albumRef = doc(db, "albums", albumId);
-      await updateDoc(albumRef, {
-        coverPhoto: photoUrl,
-        updatedAt: new Date(),
-      });
-
-      setAlbum((prev) => (prev ? { ...prev, coverPhoto: photoUrl } : null));
-    } catch (error: unknown) {
-      console.error("Error updating cover photo:", error);
-      alert("Failed to update cover photo. Please try again.");
-    }
-  };
-
-  const openPhotoModal = (photo: any, index: number) => {
+  // Photo modal functions
+  const openPhotoModal = useCallback((photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
-    setShowPhotoModal(true);
-  };
+  }, []);
 
-  const closePhotoModal = () => {
-    setShowPhotoModal(false);
+  const closePhotoModal = useCallback(() => {
     setSelectedPhoto(null);
-    setSelectedPhotoIndex(0);
-  };
+  }, []);
 
-  const goToPreviousPhoto = () => {
-    if (selectedPhotoIndex > 0) {
+  const goToPreviousPhoto = useCallback(() => {
+    if (selectedPhotoIndex > 0 && photos) {
       const newIndex = selectedPhotoIndex - 1;
       setSelectedPhotoIndex(newIndex);
       setSelectedPhoto(photos[newIndex]);
     }
-  };
+  }, [selectedPhotoIndex, photos]);
 
-  const goToNextPhoto = () => {
-    if (selectedPhotoIndex < photos.length - 1) {
+  const goToNextPhoto = useCallback(() => {
+    if (photos && selectedPhotoIndex < photos.length - 1) {
       const newIndex = selectedPhotoIndex + 1;
       setSelectedPhotoIndex(newIndex);
       setSelectedPhoto(photos[newIndex]);
     }
-  };
+  }, [selectedPhotoIndex, photos]);
 
-  if (isLoading) {
+  // Loading state
+  if (loading || albumLoading || photosLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <LoadingSpinner message="Loading album..." />
@@ -172,18 +122,42 @@ export default function AlbumPage({
     );
   }
 
+  // Error states
+  if (albumError || photosError) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 dark:text-red-400 mb-4">
+            Error loading album: {albumError || photosError}
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Album not found
   if (!album) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            Album not found
-          </h2>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Album Not Found
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
+            The album you're looking for doesn't exist or you don't have
+            permission to view it.
+          </p>
           <Link
             href="/albums"
-            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            ← Back to Albums
+            Back to Albums
           </Link>
         </div>
       </div>
@@ -195,11 +169,226 @@ export default function AlbumPage({
       {/* Header */}
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-4">
-              <Link href="/albums" className="flex items-center gap-2">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <Link
+                href="/albums"
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+              >
+                ← Back to Albums
+              </Link>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleRefresh}
+                className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                title="Refresh album"
+              >
                 <svg
-                  className="h-5 w-5 text-gray-500 dark:text-gray-400"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+              </button>
+
+              {/* Edit button - only show if user created the album */}
+              {album.createdBy === user?.uid && (
+                <Link
+                  href={`/albums/${albumId}/edit`}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Album
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Album Header */}
+        <div className="mb-8">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                {album.title}
+                {(albumIsStale || photosIsStale) && (
+                  <span className="text-xs text-yellow-500 ml-2">
+                    (updating...)
+                  </span>
+                )}
+              </h1>
+              {album.description && (
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  {album.description}
+                </p>
+              )}
+              <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
+                <span>{photos?.length || 0} photos</span>
+                <span>
+                  Created{" "}
+                  {new Date(
+                    typeof album.createdAt === "object" &&
+                    album.createdAt &&
+                    "toDate" in album.createdAt
+                      ? (album.createdAt as any).toDate()
+                      : album.createdAt
+                  ).toLocaleDateString()}
+                </span>
+                <span>By {album.createdByName || "Unknown"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Photos Grid */}
+        {photos && photos.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {photos.map((photo, index) => (
+              <div
+                key={photo.id}
+                className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
+                onClick={() => openPhotoModal(photo, index)}
+              >
+                <PhotoImage
+                  src={photo.url}
+                  alt={photo.title || "Photo"}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                  fill={true}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                />
+
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
+
+                {/* Photo info overlay */}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-white text-sm font-medium truncate">
+                    {photo.title || "Untitled Photo"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 max-w-md mx-auto">
+              <svg
+                className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                No photos in this album
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Add some photos to bring this album to life
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href="/photos"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                    />
+                  </svg>
+                  Add from Photos
+                </Link>
+                <Link
+                  href="/upload"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                >
+                  <svg
+                    className="h-4 w-4 mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                  Upload New Photos
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Photo Modal - You'll need to create this component or use an existing one */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-7xl max-h-full w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <button
+              onClick={closePhotoModal}
+              className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-colors"
+            >
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Previous button */}
+            {selectedPhotoIndex > 0 && (
+              <button
+                onClick={goToPreviousPhoto}
+                className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-colors"
+              >
+                <svg
+                  className="h-6 w-6"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -211,335 +400,59 @@ export default function AlbumPage({
                     d="M15 19l-7-7 7-7"
                   />
                 </svg>
-                <span className="text-gray-500 dark:text-gray-400">
-                  Back to Albums
-                </span>
-              </Link>
-              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                Family Photo Share
-              </span>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <ThemeToggle />
-              <Link
-                href="/upload"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Upload Photos
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Album Header */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-            {/* Album Info */}
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                {album.title}
-              </h1>
-              {album.description && (
-                <p className="text-gray-600 dark:text-gray-300 mb-4">
-                  {album.description}
-                </p>
-              )}
-              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <span>{photos.length} photos</span>
-                <span>•</span>
-                <span>{album.isPublic ? "Public" : "Private"}</span>
-                <span>•</span>
-                <span>Created by {album.createdByName}</span>
-              </div>
-            </div>
-
-            {/* Cover Photo Preview */}
-            {album.coverPhoto && (
-              <div className="w-32 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex-shrink-0">
-                <SafeImage
-                  src={album.coverPhoto}
-                  alt={`${album.title} cover`}
-                  className="w-32 h-24 object-cover rounded-lg"
-                  loading="lazy"
-                />
-              </div>
+              </button>
             )}
-          </div>
 
-          {/* Album Actions */}
-          <div className="mt-6 flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => setShowSetCoverModal(true)}
-              className="px-4 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-200 dark:border-blue-600 hover:border-blue-300 dark:hover:border-blue-500 rounded-lg text-sm transition-colors"
-            >
-              {album.coverPhoto ? "Change Cover" : "Set Cover Photo"}
-            </button>
+            {/* Next button */}
+            {photos && selectedPhotoIndex < photos.length - 1 && (
+              <button
+                onClick={goToNextPhoto}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-colors"
+              >
+                <svg
+                  className="h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            )}
 
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="px-4 py-2 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 border border-red-200 dark:border-red-600 hover:border-red-300 dark:hover:border-red-500 rounded-lg text-sm transition-colors"
-            >
-              Delete Album
-            </button>
-
-            <Link
-              href={`/albums/${album.id}/edit`}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
-            >
-              Edit Album
-            </Link>
-          </div>
-        </div>
-
-        {/* Photos Grid */}
-        {photos.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
-              Photos in this Album
-            </h2>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-              {photos.map((photo, index) => {
-                // iOS-specific touch handlers
-                const handlePhotoTouchStart = (e: React.TouchEvent) => {
-                  e.stopPropagation();
-                };
-
-                const handlePhotoTouchEnd = (e: React.TouchEvent) => {
-                  const target = e.target as HTMLElement;
-                  if (!target.closest("button")) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setTimeout(() => openPhotoModal(photo, index), 10);
-                  }
-                };
-
-                const handleCoverButtonTouch = (e: React.TouchEvent) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (photo.url) {
-                    setTimeout(() => handleQuickSetCover(photo.url!), 10);
-                  }
-                };
-
-                return (
-                  <div
-                    key={photo.id}
-                    className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
-                  >
-                    {/* Touchable photo container */}
-                    <div
-                      className="absolute inset-0 cursor-pointer"
-                      style={{
-                        touchAction: "manipulation",
-                        WebkitTouchCallout: "none",
-                        WebkitUserSelect: "none",
-                        userSelect: "none",
-                        WebkitTapHighlightColor: "transparent",
-                      }}
-                      onClick={(e) => {
-                        const target = e.target as HTMLElement;
-                        if (!target.closest("button")) {
-                          openPhotoModal(photo, index);
-                        }
-                      }}
-                      onTouchStart={handlePhotoTouchStart}
-                      onTouchEnd={handlePhotoTouchEnd}
-                    >
-                      {photo.url ? (
-                        <SafeImage
-                          src={photo.url}
-                          alt={photo.title || "Photo"}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
-                          <svg
-                            className="h-8 w-8 text-gray-400 dark:text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </div>
-                      )}
-
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
-                    </div>
-
-                    {/* Current cover indicator */}
-                    {photo.url === album.coverPhoto && (
-                      <div className="absolute top-2 left-2 bg-green-600 dark:bg-green-500 text-white px-2 py-1 rounded text-xs font-medium z-20">
-                        Cover
-                      </div>
-                    )}
-
-                    {/* Set as Cover button - show on hover for non-cover photos */}
-                    {photo.url && photo.url !== album.coverPhoto && (
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
-                        <button
-                          onClick={(e) => {
-                            console.log("🎯 COVER BUTTON CLICKED");
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (photo.url) {
-                              handleQuickSetCover(photo.url);
-                            }
-                          }}
-                          onTouchStart={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onTouchEnd={handleCoverButtonTouch}
-                          className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
-                          style={{
-                            touchAction: "manipulation",
-                            minHeight: "44px",
-                            minWidth: "44px",
-                            WebkitTouchCallout: "none",
-                            WebkitUserSelect: "none",
-                            userSelect: "none",
-                            WebkitTapHighlightColor: "transparent",
-                          }}
-                          title="Set as Cover Photo"
-                        >
-                          <svg
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2H5zm0 3h14v10l-3-3-2 2-4-4-5 5V6z"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="absolute bottom-2 left-2 right-2 z-10">
-                      <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                        {photo.title || "Untitled Photo"}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <svg
-              className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            {/* Photo */}
+            <div className="relative max-w-full max-h-full">
+              <PhotoImage
+                src={selectedPhoto.url}
+                alt={selectedPhoto.title || "Photo"}
+                className="max-w-full max-h-full object-contain"
+                width={1200}
+                height={800}
+                sizes="100vw"
               />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No photos in this album
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Add photos to get started
-            </p>
-            <Link
-              href="/upload"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-            >
-              Upload Photos
-            </Link>
-          </div>
-        )}
-      </main>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Delete Album
-            </h3>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              Are you sure you want to delete &quot;{album.title}&quot;? This
-              action can not be undone. The photos will not be deleted, only the
-              album.
-            </p>
-
-            <div className="flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={handleDeleteAlbum}
-                disabled={isDeleting}
-                className="px-4 py-2 bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 text-white rounded-lg disabled:opacity-50 transition-colors"
-              >
-                {isDeleting ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Deleting...
-                  </div>
-                ) : (
-                  "Delete Album"
+              {/* Photo info */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                <h3 className="text-white text-xl font-semibold mb-2">
+                  {selectedPhoto.title || "Untitled Photo"}
+                </h3>
+                {selectedPhoto.description && (
+                  <p className="text-gray-200 text-sm">
+                    {selectedPhoto.description}
+                  </p>
                 )}
-              </button>
+                <p className="text-gray-300 text-xs mt-2">
+                  {selectedPhotoIndex + 1} of {photos?.length || 0}
+                </p>
+              </div>
             </div>
           </div>
-
-          {/* Click outside to close */}
-          <div
-            className="absolute inset-0 -z-10"
-            onClick={() => !isDeleting && setShowDeleteConfirm(false)}
-          />
         </div>
-      )}
-
-      {/* Set Cover Photo Modal */}
-      {showSetCoverModal && (
-        <SetCoverPhotoModal
-          album={album}
-          photos={photos.filter((photo) => photo.url)}
-          isOpen={showSetCoverModal}
-          onClose={() => setShowSetCoverModal(false)}
-          onPhotoSelected={handleCoverPhotoUpdate}
-        />
-      )}
-
-      {/* Photo Modal */}
-      {showPhotoModal && selectedPhoto && (
-        <PhotoModal
-          photo={selectedPhoto}
-          isOpen={showPhotoModal}
-          onClose={closePhotoModal}
-          onPrevious={goToPreviousPhoto}
-          onNext={goToNextPhoto}
-          hasPrevious={selectedPhotoIndex > 0}
-          hasNext={selectedPhotoIndex < photos.length - 1}
-        />
       )}
     </div>
   );

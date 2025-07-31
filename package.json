@@ -20,7 +20,10 @@
     "next": "15.3.2",
     "nodemailer": "^7.0.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hot-toast": "^2.5.2",
+    "react-window": "^1.8.11",
+    "react-window-infinite-loader": "^1.0.10"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -28,6 +31,8 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-window": "^1.8.8",
+    "@types/react-window-infinite-loader": "^1.0.9",
     "autoprefixer": "^10.4.21",
     "eslint": "^9",
     "eslint-config-next": "15.3.2",

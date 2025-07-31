@@ -1,21 +1,43 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import {
+  doc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc, // Just import it normally
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import SafeImage from "@/components/SafeImage";
+import PhotoImage from "@/components/PhotoImage";
+import { toast } from "react-hot-toast";
+
+// CACHING IMPORTS
+import { useCachedAlbums } from "@/hooks/useCachedAlbums";
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 
 export default function AlbumsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [deletingAlbumId, setDeletingAlbumId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
+
+  // USE CACHED ALBUMS HOOK
+  const {
+    data: albums,
+    loading: isLoading,
+    error,
+    refetch,
+    isStale,
+  } = useCachedAlbums(true); // Enable realtime updates
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -24,33 +46,68 @@ export default function AlbumsPage() {
     }
   }, [user, loading, router]);
 
-  // Fetch albums
-  useEffect(() => {
-    async function fetchAlbums() {
-      if (user) {
-        try {
-          const albumsQuery = query(
-            collection(db, "albums"),
-            orderBy("updatedAt", "desc")
-          );
-          const albumSnapshot = await getDocs(albumsQuery);
-          const albumsData = albumSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as Album[];
-          setAlbums(albumsData);
-        } catch (error: unknown) {
-          console.error("Error fetching albums:", error);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    }
+  // Delete album function
+  const handleDeleteAlbum = useCallback(
+    async (album: Album) => {
+      if (!user || !album.id) return;
 
-    if (user && !loading) {
-      fetchAlbums();
-    }
-  }, [user, loading]);
+      setDeletingAlbumId(album.id);
+
+      try {
+        // Check if user can delete this album (owner or admin)
+        if (album.createdBy !== user.uid) {
+          toast.error("You can only delete albums you created");
+          return;
+        }
+
+        // Delete the album document
+        await deleteDoc(doc(db, "albums", album.id));
+
+        // Remove album reference from photos (if your data structure uses this)
+        const photosQuery = query(
+          collection(db, "photos"),
+          where("albumId", "==", album.id)
+        );
+        const photosSnapshot = await getDocs(photosQuery);
+
+        const updatePromises = photosSnapshot.docs.map((photoDoc) =>
+          updateDoc(doc(db, "photos", photoDoc.id), {
+            albumId: null, // or you could use deleteField() to remove the field entirely
+          })
+        );
+
+        await Promise.all(updatePromises);
+
+        // INVALIDATE CACHE
+        CacheInvalidationManager.invalidateForAction("album-delete", user.uid);
+
+        // Refetch to update UI immediately
+        refetch();
+
+        toast.success(`Album "${album.title}" deleted successfully`);
+        setShowDeleteModal(false);
+        setAlbumToDelete(null);
+      } catch (error) {
+        console.error("Error deleting album:", error);
+        toast.error("Failed to delete album. Please try again.");
+      } finally {
+        setDeletingAlbumId(null);
+      }
+    },
+    [user, refetch]
+  );
+
+  // Show delete confirmation modal
+  const confirmDeleteAlbum = (album: Album) => {
+    setAlbumToDelete(album);
+    setShowDeleteModal(true);
+  };
+
+  // Cancel delete
+  const cancelDelete = () => {
+    setShowDeleteModal(false);
+    setAlbumToDelete(null);
+  };
 
   // Loading screen
   if (loading || isLoading) {
@@ -68,6 +125,11 @@ export default function AlbumsPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Photo Albums
+            {isStale && (
+              <span className="text-xs text-yellow-500 ml-2">
+                (updating...)
+              </span>
+            )}
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
             Organize your family photos into beautiful albums
@@ -77,66 +139,108 @@ export default function AlbumsPage() {
         {albums.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {albums.map((album) => (
-              <Link
+              <div
                 key={album.id}
-                href={`/albums/${album.id}`}
-                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-200"
+                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-200 relative"
               >
                 {/* Album Cover */}
-                <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative">
-                  {album.coverPhoto ? (
-                    <SafeImage
-                      src={album.coverPhoto}
-                      alt={album.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <svg
-                        className="h-16 w-16 text-gray-400 dark:text-gray-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                        />
-                      </svg>
-                    </div>
-                  )}
+                <Link href={`/albums/${album.id}`}>
+                  <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative">
+                    {album.coverPhoto ? (
+                      <PhotoImage
+                        src={album.coverPhoto}
+                        alt={album.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        fill={true}
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg
+                          className="h-16 w-16 text-gray-400 dark:text-gray-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                          />
+                        </svg>
+                      </div>
+                    )}
 
-                  {/* Photo count overlay */}
-                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
-                    {album.photoCount || 0} photos
+                    {/* Photo count overlay */}
+                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
+                      {album.photoCount || 0} photos
+                    </div>
                   </div>
-                </div>
+                </Link>
 
                 {/* Album Info */}
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1">
-                    {album.title}
-                  </h3>
-                  {album.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                      {album.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    Updated{" "}
-                    {new Date(
-                      typeof album.updatedAt === "object" &&
-                      album.updatedAt &&
-                      "toDate" in album.updatedAt
-                        ? (album.updatedAt as any).toDate()
-                        : album.updatedAt
-                    ).toLocaleDateString()}
-                  </p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/albums/${album.id}`}>
+                        <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1 hover:text-blue-600 dark:hover:text-blue-400">
+                          {album.title}
+                        </h3>
+                      </Link>
+                      {album.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                          {album.description}
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Updated{" "}
+                        {new Date(
+                          typeof album.updatedAt === "object" &&
+                          album.updatedAt &&
+                          "toDate" in album.updatedAt
+                            ? (album.updatedAt as any).toDate()
+                            : album.updatedAt
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    {/* Delete Button - Only show if user created the album */}
+                    {album.createdBy === user?.uid && (
+                      <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            confirmDeleteAlbum(album);
+                          }}
+                          disabled={deletingAlbumId === album.id}
+                          className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
+                          title="Delete album"
+                        >
+                          {deletingAlbumId === album.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          ) : (
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
@@ -183,7 +287,85 @@ export default function AlbumsPage() {
             </div>
           </div>
         )}
+
+        {error && (
+          <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">
+              Error loading albums: {error}
+            </span>
+            <button
+              onClick={() => refetch()}
+              className="ml-4 underline hover:no-underline"
+            >
+              Try again
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && albumToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                <svg
+                  className="w-6 h-6 text-red-600 dark:text-red-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Delete Album
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 dark:text-gray-300">
+                Are you sure you want to delete{" "}
+                <strong>"{albumToDelete.title}"</strong>? This will remove the
+                album but not the photos themselves.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteAlbum(albumToDelete)}
+                disabled={deletingAlbumId === albumToDelete.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 flex items-center"
+              >
+                {deletingAlbumId === albumToDelete.id ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Album"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
