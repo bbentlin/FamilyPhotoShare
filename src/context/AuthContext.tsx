@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
 import {
@@ -11,10 +11,16 @@ import {
   updateProfile,
   sendPasswordResetEmail,
   setPersistence,
-  browserSessionPersistence
+  browserSessionPersistence,
 } from "firebase/auth";
 import { auth, db, googleProvider } from "@/lib/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 interface AuthContextProps {
   user: User | null;
@@ -45,8 +51,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUser(user);
+
+        // CREATE/UPDATE USER DOCUMENT IN FIRESTORE
+        try {
+          const userRef = doc(db, "users", user.uid);
+          const userDoc = await getDoc(userRef);
+
+          if (!userDoc.exists()) {
+            // Create new user document
+            await setDoc(userRef, {
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              photoURL: user.photoURL,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+              lastLoginAt: serverTimestamp(),
+            });
+            console.log("Created user document for:", user.email);
+          } else {
+            // Update last login time
+            await updateDoc(userRef, {
+              lastLoginAt: serverTimestamp(),
+              displayName: user.displayName, // Update in case it changed
+              photoURL: user.photoURL,
+            });
+            console.log("Updated user document for:", user.email);
+          }
+        } catch (error) {
+          console.error("Error creating/updating user document:", error);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -58,11 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Ensure session persistence before signup
       await setPersistence(auth, browserSessionPersistence);
 
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       // Update profile with display name
       if (userCredential.user) {
         await updateProfile(userCredential.user, {
-          displayName: name
+          displayName: name,
         });
 
         // Create user document in Firestore
@@ -73,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           newUploadsNotification: true,
           commentsNotification: true,
           createdAt: new Date().toISOString(),
-          provider: "email"
+          provider: "email",
         });
       }
     } catch (error) {
@@ -108,14 +152,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!userDoc.exists()) {
         // Create user document for new Google users
         await setDoc(userDocRef, {
-          displayName: user.displayName || user.email?.split("@")[0] || "Google User",
+          displayName:
+            user.displayName || user.email?.split("@")[0] || "Google User",
           email: user.email,
           photoURL: user.photoURL,
           emailNotifications: true,
           newUploadsNotifications: true,
           commentsNotification: true,
           createdAt: new Date().toISOString(),
-          provider: "google"
+          provider: "google",
         });
       }
     } catch (error) {
@@ -143,13 +188,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const value = {
-    user, 
+    user,
     loading,
     signUp,
     signIn,
     signInWithGoogle,
     logout: logOut,
-    resetPassword
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

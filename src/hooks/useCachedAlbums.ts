@@ -13,7 +13,7 @@ export function useCachedAlbums(enableRealtime = false) {
     if (!user) return null;
     return query(
       collection(db, 'albums'),
-      where('members', 'array-contains', user.uid),
+      where('createdBy', '==', user.uid),
       orderBy('updatedAt', 'desc')
     );
   }, [user]);

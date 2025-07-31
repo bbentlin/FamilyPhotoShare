@@ -52,7 +52,7 @@ export default function AlbumPage() {
     if (!albumId) return null;
     return query(
       collection(db, "photos"),
-      where("albumId", "==", albumId),
+      where("albums", "array-contains", albumId),
       orderBy("createdAt", "desc")
     );
   }, [albumId]);

@@ -70,6 +70,7 @@ export default function UploadPage() {
           description: "",
           uploadedBy: user.uid,
           uploadedByName: user.displayName || user.email || "Unknown",
+          createdBy: user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           size: file.size,
@@ -78,7 +79,7 @@ export default function UploadPage() {
           tags: [],
           likes: [],
           comments: [],
-          albumId: null,
+          albumId: [],
         };
 
         await addDoc(collection(db, "photos"), photoData);
