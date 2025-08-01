@@ -20,67 +20,58 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="icon"
+          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📸</text></svg>"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                try {
-                  var theme = localStorage.getItem('theme') || 'system';
-                  var effectiveTheme = theme;
-                  
-                  if (theme === 'system') {
-                    // Enhanced Chrome detection
-                    var isChrome = navigator.userAgent.indexOf('Chrome') > -1;
-                    var isDark = false;
-                    
-                    // Method 1: Standard check
-                    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                      isDark = true;
+                function initTheme() {
+                  try {
+                    // Wait for DOM to be ready
+                    if (!document.documentElement) {
+                      setTimeout(initTheme, 10);
+                      return;
                     }
                     
-                    // Method 2: Chrome-specific check
-                    if (isChrome) {
-                      try {
-                        var testEl = document.createElement('div');
-                        testEl.style.cssText = 'color-scheme: dark; position: absolute; visibility: hidden;';
-                        document.documentElement.appendChild(testEl);
-                        var computedStyle = window.getComputedStyle(testEl);
-                        if (computedStyle.colorScheme === 'dark') {
-                          isDark = true;
-                        }
-                        document.documentElement.removeChild(testEl);
-                      } catch(e) {}
+                    var theme = localStorage.getItem('theme') || 'system';
+                    var effectiveTheme = theme;
+                    
+                    if (theme === 'system') {
+                      var isDark = false;
                       
-                      // Method 3: Check cached value for Chrome
-                      var cached = localStorage.getItem('system-theme-cache');
-                      if (cached) {
-                        isDark = cached === 'dark';
+                      // Standard check
+                      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                        isDark = true;
                       }
+                      
+                      effectiveTheme = isDark ? 'dark' : 'light';
                     }
                     
-                    effectiveTheme = isDark ? 'dark' : 'light';
+                    // Apply theme safely
+                    var root = document.documentElement;
+                    if (root && root.classList) {
+                      root.classList.remove('light', 'dark');
+                      root.classList.add(effectiveTheme);
+                      root.style.setProperty('color-scheme', effectiveTheme);
+                    }
                     
-                    // Cache for Chrome
-                    if (isChrome) {
-                      localStorage.setItem('system-theme-cache', effectiveTheme);
+                  } catch (e) {
+                    console.warn('Theme initialization failed:', e);
+                    // Fallback to light theme
+                    if (document.documentElement && document.documentElement.classList) {
+                      document.documentElement.classList.add('light');
                     }
                   }
-                  
-                  // Apply theme
-                  var root = document.documentElement;
-                  var body = document.body;
-                  
-                  root.classList.remove('light', 'dark');
-                  body.classList.remove('light', 'dark');
-                  
-                  root.classList.add(effectiveTheme);
-                  body.classList.add(effectiveTheme);
-                  
-                  // Set CSS custom property
-                  root.style.setProperty('color-scheme', effectiveTheme);
-                  
-                } catch (e) {
-                  console.warn('Theme initialization failed:', e);
+                }
+                
+                // Initialize immediately or wait for DOM
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', initTheme);
+                } else {
+                  initTheme();
                 }
               })();
             `,

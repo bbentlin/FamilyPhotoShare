@@ -1,7 +1,7 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,27 +10,23 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Initialize Firebase on client side only
-let app: any = null;
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
-let googleProvider: any = null;
+// Debug logging (remove in production)
+console.log('Firebase Config:', {
+  apiKey: firebaseConfig.apiKey ? '[SET]' : '[MISSING]',
+  authDomain: firebaseConfig.authDomain ? '[SET]' : '[MISSING]',
+  projectId: firebaseConfig.projectId ? '[SET]' : '[MISSING]',
+  storageBucket: firebaseConfig.storageBucket ? '[SET]' : '[MISSING]',
+  messagingSenderId: firebaseConfig.messagingSenderId ? '[SET]' : '[MISSING]',
+  appId: firebaseConfig.appId ? '[SET]' : '[MISSING]',
+});
 
-if (typeof window !== 'undefined') {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+const app = initializeApp(firebaseConfig);
 
-  googleProvider = new GoogleAuthProvider();
-  googleProvider.setCustomParameters({
-    prompt: "select_account"
-  });
-}
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export const googleProvider = new GoogleAuthProvider();
 
-export { auth, db, storage, googleProvider };
 export default app;

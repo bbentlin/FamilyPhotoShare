@@ -42,10 +42,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set session persistence on mount
     const initializeAuth = async () => {
       try {
+        // Check if Firebase is properly initialized
+        if (!auth) {
+          console.error("Firebase Auth not initialized");
+          setLoading(false);
+          return;
+        }
+
         await setPersistence(auth, browserSessionPersistence);
         console.log("Auth persistence set to session-only");
       } catch (error) {
         console.error("Error setting auth persistence:", error);
+        // Don't fail completely, just log the error
       }
     };
 
@@ -57,6 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // CREATE/UPDATE USER DOCUMENT IN FIRESTORE
         try {
+          // Check if Firestore is available
+          if (!db) {
+            console.error("Firestore not initialized");
+            setLoading(false);
+            return;
+          }
+
           const userRef = doc(db, "users", user.uid);
           const userDoc = await getDoc(userRef);
 
@@ -88,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (error) {
           console.error("Error creating/updating user document:", error);
+          // Don't fail the auth process, just log the error
         }
       } else {
         setUser(null);
@@ -100,6 +116,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signUp(email: string, password: string, name: string) {
     try {
+      // Check if Firebase is available
+      if (!auth || !db) {
+        throw new Error("Firebase services not available");
+      }
+
       // Ensure session persistence before signup
       await setPersistence(auth, browserSessionPersistence);
 
@@ -108,22 +129,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
         password
       );
+
       // Update profile with display name
       if (userCredential.user) {
         await updateProfile(userCredential.user, {
           displayName: name,
         });
 
-        // Create user document in Firestore
+        // Create user document in Firestore with consistent timestamp format
         await setDoc(doc(db, "users", userCredential.user.uid), {
+          uid: userCredential.user.uid,
           displayName: name,
           email: email,
+          photoURL: null,
           emailNotifications: true,
           newUploadsNotification: true,
           commentsNotification: true,
-          createdAt: new Date().toISOString(),
+          createdAt: serverTimestamp(), // Use serverTimestamp for consistency
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
           provider: "email",
         });
+        console.log("User document created during signup for:", email);
       }
     } catch (error) {
       console.error("Error signing up:", error);
@@ -144,6 +171,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithGoogle() {
     try {
+      // Check if Firebase is available
+      if (!auth || !db) {
+        throw new Error("Firebase services not available");
+      }
+
       // Ensure session persistence before signin
       await setPersistence(auth, browserSessionPersistence);
 
@@ -155,8 +187,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userDoc = await getDoc(userDocRef);
 
       if (!userDoc.exists()) {
-        // Create user document for new Google users
+        // Create user document for new Google users with consistent format
         await setDoc(userDocRef, {
+          uid: user.uid,
           displayName:
             user.displayName || user.email?.split("@")[0] || "Google User",
           email: user.email,
@@ -164,9 +197,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           emailNotifications: true,
           newUploadsNotifications: true,
           commentsNotification: true,
-          createdAt: new Date().toISOString(),
+          createdAt: serverTimestamp(), // Use serverTimestamp for consistency
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
           provider: "google",
         });
+        console.log(
+          "User document created during Google signin for:",
+          user.email
+        );
       }
     } catch (error) {
       console.error("Error signing in with Google:", error);
