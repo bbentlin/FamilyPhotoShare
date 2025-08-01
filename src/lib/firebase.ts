@@ -1,7 +1,4 @@
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -12,21 +9,91 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase only if it hasn't been initialized already
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-
-// Only initialize services on the client side
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
-let googleProvider: any = null;
+// Initialize Firebase app
+let app: FirebaseApp;
 
 if (typeof window !== 'undefined') {
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-  googleProvider = new GoogleAuthProvider();
+  // Only initialize on client side
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+} else {
+  // Create a mock app for server side
+  app = {} as FirebaseApp;
 }
 
-export { auth, db, storage, googleProvider };
+// Lazy initialization functions to avoid immediate service loading
+export const getFirebaseAuth = async () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { getAuth } = await import('firebase/auth');
+    return getAuth(app);
+  } catch (error) {
+    console.error('Failed to initialize Firebase Auth:', error);
+    return null;
+  }
+};
+
+export const getFirebaseDb = async () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { getFirestore } = await import('firebase/firestore');
+    return getFirestore(app);
+  } catch (error) {
+    console.error('Failed to initialize Firestore:', error);
+    return null;
+  }
+};
+
+export const getFirebaseStorage = async () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { getStorage } = await import('firebase/storage');
+    return getStorage(app);
+  } catch (error) {
+    console.error('Failed to initialize Firebase Storage:', error);
+    return null;
+  }
+};
+
+export const getGoogleProvider = async () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const { GoogleAuthProvider } = await import('firebase/auth');
+    return new GoogleAuthProvider();
+  } catch (error) {
+    console.error('Failed to initialize Google Provider:', error);
+    return null;
+  }
+};
+
+// Legacy exports for backward compatibility (will be null on server)
+export let auth: any = null;
+export let db: any = null;
+export let storage: any = null;
+export let googleProvider: any = null;
+
+// Initialize services on client side only
+if (typeof window !== 'undefined') {
+  // Use dynamic imports to prevent server-side loading
+  Promise.all([
+    getFirebaseAuth(),
+    getFirebaseDb(),
+    getFirebaseStorage(),
+    getGoogleProvider(),
+  ])
+    .then(([authService, dbService, storageService, providerService]) => {
+      auth = authService;
+      db = dbService;
+      storage = storageService;
+      googleProvider = providerService;
+    })
+    .catch((error) => {
+      console.error('Failed to initialize Firebase services:', error);
+    });
+}
+
 export default app;
+
