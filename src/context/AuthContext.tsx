@@ -62,24 +62,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!userDoc.exists()) {
             // Create new user document
+            console.log("Creating user document for:", user.email);
             await setDoc(userRef, {
               uid: user.uid,
               email: user.email,
-              displayName: user.displayName,
+              displayName:
+                user.displayName || user.email?.split("@")[0] || "Unknown User",
               photoURL: user.photoURL,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
               lastLoginAt: serverTimestamp(),
             });
-            console.log("Created user document for:", user.email);
+            console.log("User document created successfully");
           } else {
-            // Update last login time
+            // Update existing user document with latest info
+            console.log("Updating user document for:", user.email);
             await updateDoc(userRef, {
-              lastLoginAt: serverTimestamp(),
-              displayName: user.displayName, // Update in case it changed
+              displayName:
+                user.displayName || user.email?.split("@")[0] || "Unknown User",
               photoURL: user.photoURL,
+              lastLoginAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
             });
-            console.log("Updated user document for:", user.email);
+            console.log("User document updated successfully");
           }
         } catch (error) {
           console.error("Error creating/updating user document:", error);
