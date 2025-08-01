@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -12,21 +12,21 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Debug logging (remove in production)
-console.log('Firebase Config:', {
-  apiKey: firebaseConfig.apiKey ? '[SET]' : '[MISSING]',
-  authDomain: firebaseConfig.authDomain ? '[SET]' : '[MISSING]',
-  projectId: firebaseConfig.projectId ? '[SET]' : '[MISSING]',
-  storageBucket: firebaseConfig.storageBucket ? '[SET]' : '[MISSING]',
-  messagingSenderId: firebaseConfig.messagingSenderId ? '[SET]' : '[MISSING]',
-  appId: firebaseConfig.appId ? '[SET]' : '[MISSING]',
-});
+// Initialize Firebase only if it hasn't been initialized already
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-const app = initializeApp(firebaseConfig);
+// Only initialize services on the client side
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+let googleProvider: any = null;
 
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
+if (typeof window !== 'undefined') {
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
+  googleProvider = new GoogleAuthProvider();
+}
 
+export { auth, db, storage, googleProvider };
 export default app;

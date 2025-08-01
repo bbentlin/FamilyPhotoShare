@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
+import ClientOnly from "@/components/ClientOnly";
 import { AuthProvider } from "@/context/AuthContext";
-import { ThemeProvider } from "@/context/ThemeContext";
-import ConditionalNavbar from "@/components/ConditionalNavbar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -30,7 +30,6 @@ export default function RootLayout({
               (function() {
                 function initTheme() {
                   try {
-                    // Wait for DOM to be ready
                     if (!document.documentElement) {
                       setTimeout(initTheme, 10);
                       return;
@@ -41,33 +40,26 @@ export default function RootLayout({
                     
                     if (theme === 'system') {
                       var isDark = false;
-                      
-                      // Standard check
                       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
                         isDark = true;
                       }
-                      
                       effectiveTheme = isDark ? 'dark' : 'light';
                     }
                     
-                    // Apply theme safely
                     var root = document.documentElement;
                     if (root && root.classList) {
                       root.classList.remove('light', 'dark');
                       root.classList.add(effectiveTheme);
                       root.style.setProperty('color-scheme', effectiveTheme);
                     }
-                    
                   } catch (e) {
                     console.warn('Theme initialization failed:', e);
-                    // Fallback to light theme
                     if (document.documentElement && document.documentElement.classList) {
                       document.documentElement.classList.add('light');
                     }
                   }
                 }
                 
-                // Initialize immediately or wait for DOM
                 if (document.readyState === 'loading') {
                   document.addEventListener('DOMContentLoaded', initTheme);
                 } else {
@@ -79,12 +71,21 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider>
+        <ClientOnly fallback={<div>Loading...</div>}>
           <AuthProvider>
-            <ConditionalNavbar />
             {children}
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 4000,
+                style: {
+                  background: "var(--toast-bg)",
+                  color: "var(--toast-color)",
+                },
+              }}
+            />
           </AuthProvider>
-        </ThemeProvider>
+        </ClientOnly>
       </body>
     </html>
   );

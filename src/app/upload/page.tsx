@@ -28,26 +28,24 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [storageError, setStorageError] = useState<string>("");
 
-  // Check Firebase Storage availability
+  // Client-side only check
   useEffect(() => {
-    try {
-      // Test if storage is available
-      if (typeof window !== "undefined") {
-        import("@/lib/firebase")
-          .then(({ storage }) => {
-            if (!storage) {
-              setStorageError("Firebase Storage is not available");
-            }
-          })
-          .catch((error) => {
-            console.error("Firebase import error:", error);
-            setStorageError("Failed to load Firebase services");
-          });
+    if (typeof window === "undefined") return;
+
+    // Check Firebase Storage availability
+    const checkStorage = async () => {
+      try {
+        const { storage } = await import("@/lib/firebase");
+        if (!storage) {
+          setStorageError("Firebase Storage is not available");
+        }
+      } catch (error) {
+        console.error("Storage check error:", error);
+        setStorageError("Storage service unavailable");
       }
-    } catch (error) {
-      console.error("Storage check error:", error);
-      setStorageError("Storage service unavailable");
-    }
+    };
+
+    checkStorage();
   }, []);
 
   // Show error if storage is not available
