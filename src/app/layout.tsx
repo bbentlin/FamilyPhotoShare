@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import ClientOnly from "@/components/ClientOnly";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -72,19 +73,22 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ClientOnly fallback={<div>Loading...</div>}>
-          <AuthProvider>
-            {children}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: "var(--toast-bg)",
-                  color: "var(--toast-color)",
-                },
-              }}
-            />
-          </AuthProvider>
+          <ThemeProvider>
+            {" "}
+            <AuthProvider>
+              {children}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: "var(--toast-bg)",
+                    color: "var(--toast-color)",
+                  },
+                }}
+              />
+            </AuthProvider>
+          </ThemeProvider>{" "}
         </ClientOnly>
       </body>
     </html>
