@@ -13,14 +13,13 @@ const firebaseConfig = {
 let app: FirebaseApp;
 
 if (typeof window !== 'undefined') {
-  // Only initialize on client side
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 } else {
-  // Create a mock app for server side
+  // Create a minimal app for server side
   app = {} as FirebaseApp;
 }
 
-// Lazy initialization functions to avoid immediate service loading
+// SAFE EXPORTS - These will work immediately
 export const getFirebaseAuth = async () => {
   if (typeof window === 'undefined') return null;
 
@@ -69,31 +68,29 @@ export const getGoogleProvider = async () => {
   }
 };
 
-// Legacy exports for backward compatibility (will be null on server)
-export let auth: any = null;
-export let db: any = null;
-export let storage: any = null;
-export let googleProvider: any = null;
+// IMMEDIATE EXPORTS - Initialize synchronously on client
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+let googleProvider: any = null;
 
-// Initialize services on client side only
 if (typeof window !== 'undefined') {
-  // Use dynamic imports to prevent server-side loading
-  Promise.all([
-    getFirebaseAuth(),
-    getFirebaseDb(),
-    getFirebaseStorage(),
-    getGoogleProvider(),
-  ])
-    .then(([authService, dbService, storageService, providerService]) => {
-      auth = authService;
-      db = dbService;
-      storage = storageService;
-      googleProvider = providerService;
-    })
-    .catch((error) => {
-      console.error('Failed to initialize Firebase services:', error);
-    });
+  // Initialize immediately on client side
+  import('firebase/auth').then(({ getAuth, GoogleAuthProvider }) => {
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+  });
+
+  import('firebase/firestore').then(({ getFirestore }) => {
+    db = getFirestore(app);
+  });
+
+  import('firebase/storage').then(({ getStorage }) => {
+    storage = getStorage(app);
+  });
 }
 
+// Safe exports that won't be null
+export { auth, db, storage, googleProvider };
 export default app;
 
