@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "firebase/auth";
-import { getFirebaseAuth, getFirebaseDb, getGoogleProvider } from "@/lib/firebase";
 
 interface AuthContextProps {
   user: User | null;
@@ -19,112 +18,118 @@ const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [firebaseServices, setFirebaseServices] = useState<{
-    auth: any;
-    db: any;
-    googleProvider: any;
-  }>({
-    auth: null,
-    db: null,
-    googleProvider: null,
-  });
 
-  // Initialize Firebase services
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
-    const initializeServices = async () => {
+    let unsubscribe: (() => void) | undefined;
+
+    const initAuth = async () => {
       try {
-        const [auth, db, googleProvider] = await Promise.all([
-          getFirebaseAuth(),
-          getFirebaseDb(),
-          getGoogleProvider(),
-        ]);
+        console.log("🔄 Starting auth initialization...");
 
-        setFirebaseServices({ auth, db, googleProvider });
+        // Direct Firebase imports
+        const { initializeApp, getApps } = await import("firebase/app");
+        const {
+          getAuth,
+          onAuthStateChanged,
+          setPersistence,
+          browserSessionPersistence,
+        } = await import("firebase/auth");
+        const {
+          getFirestore,
+          doc,
+          getDoc,
+          setDoc,
+          updateDoc,
+          serverTimestamp,
+        } = await import("firebase/firestore");
 
-        if (auth) {
-          // Import Firebase Auth functions dynamically
-          const { 
-            onAuthStateChanged, 
-            setPersistence, 
-            browserSessionPersistence 
-          } = await import('firebase/auth');
-          
-          const { 
-            doc, 
-            getDoc, 
-            setDoc, 
-            updateDoc, 
-            serverTimestamp 
-          } = await import('firebase/firestore');
+        const firebaseConfig = {
+          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId:
+            process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+        };
 
-          // Set persistence
-          try {
-            await setPersistence(auth, browserSessionPersistence);
-            console.log("Auth persistence set to session-only");
-          } catch (error) {
-            console.error("Error setting auth persistence:", error);
+        const app =
+          getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Set persistence
+        try {
+          await setPersistence(auth, browserSessionPersistence);
+          console.log("✅ Auth persistence set");
+        } catch (persistenceError) {
+          console.warn("⚠️ Auth persistence failed:", persistenceError);
+        }
+
+        console.log("✅ Firebase initialized, setting up auth listener...");
+
+        // Set up auth listener
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
+          console.log(
+            "🔄 Auth state changed:",
+            user ? `User: ${user.email}` : "No user"
+          );
+
+          if (user) {
+            setUser(user);
+
+            // Create/update user document
+            try {
+              const userRef = doc(db, "users", user.uid);
+              const userDoc = await getDoc(userRef);
+
+              if (!userDoc.exists()) {
+                console.log("🔄 Creating user document...");
+                await setDoc(userRef, {
+                  uid: user.uid,
+                  email: user.email,
+                  displayName:
+                    user.displayName ||
+                    user.email?.split("@")[0] ||
+                    "Unknown User",
+                  photoURL: user.photoURL,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                  lastLoginAt: serverTimestamp(),
+                });
+                console.log("✅ User document created");
+              } else {
+                console.log("🔄 Updating user document...");
+                await updateDoc(userRef, {
+                  displayName:
+                    user.displayName ||
+                    user.email?.split("@")[0] ||
+                    "Unknown User",
+                  photoURL: user.photoURL,
+                  lastLoginAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                });
+                console.log("✅ User document updated");
+              }
+            } catch (docError) {
+              console.error("❌ User document error:", docError);
+            }
+          } else {
+            setUser(null);
           }
 
-          // Set up auth state listener
-          const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-              setUser(user);
-
-              // CREATE/UPDATE USER DOCUMENT IN FIRESTORE
-              if (db) {
-                try {
-                  const userRef = doc(db, "users", user.uid);
-                  const userDoc = await getDoc(userRef);
-
-                  if (!userDoc.exists()) {
-                    console.log("Creating user document for:", user.email);
-                    await setDoc(userRef, {
-                      uid: user.uid,
-                      email: user.email,
-                      displayName:
-                        user.displayName || user.email?.split("@")[0] || "Unknown User",
-                      photoURL: user.photoURL,
-                      createdAt: serverTimestamp(),
-                      updatedAt: serverTimestamp(),
-                      lastLoginAt: serverTimestamp(),
-                    });
-                    console.log("User document created successfully");
-                  } else {
-                    console.log("Updating user document for:", user.email);
-                    await updateDoc(userRef, {
-                      displayName:
-                        user.displayName || user.email?.split("@")[0] || "Unknown User",
-                      photoURL: user.photoURL,
-                      lastLoginAt: serverTimestamp(),
-                      updatedAt: serverTimestamp(),
-                    });
-                    console.log("User document updated successfully");
-                  }
-                } catch (error) {
-                  console.error("Error creating/updating user document:", error);
-                }
-              }
-            } else {
-              setUser(null);
-            }
-            setLoading(false);
-          });
-
-          return unsubscribe;
-        }
+          console.log("✅ Setting loading to false");
+          setLoading(false);
+        });
       } catch (error) {
-        console.error('Failed to initialize Firebase services:', error);
+        console.error("❌ Auth initialization failed:", error);
         setLoading(false);
       }
     };
 
-    let unsubscribe: (() => void) | undefined;
-    
-    initializeServices().then((unsub) => {
-      unsubscribe = unsub;
-    });
+    initAuth();
 
     return () => {
       if (unsubscribe) {
@@ -133,148 +138,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  async function signUp(email: string, password: string, name: string) {
-    if (!firebaseServices.auth || !firebaseServices.db) {
-      throw new Error("Firebase services not available");
-    }
-
-    try {
-      const { 
-        createUserWithEmailAndPassword, 
-        updateProfile,
-        setPersistence,
-        browserSessionPersistence 
-      } = await import('firebase/auth');
-      
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-
-      await setPersistence(firebaseServices.auth, browserSessionPersistence);
-
-      const userCredential = await createUserWithEmailAndPassword(
-        firebaseServices.auth,
-        email,
-        password
-      );
-
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, {
-          displayName: name,
-        });
-
-        await setDoc(doc(firebaseServices.db, "users", userCredential.user.uid), {
-          uid: userCredential.user.uid,
-          displayName: name,
-          email: email,
-          photoURL: null,
-          emailNotifications: true,
-          newUploadsNotification: true,
-          commentsNotification: true,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          lastLoginAt: serverTimestamp(),
-          provider: "email",
-        });
-        console.log("User document created during signup for:", email);
-      }
-    } catch (error) {
-      console.error("Error signing up:", error);
-      throw error;
-    }
+  async function signIn(email: string, password: string) {
+    const { getAuth, signInWithEmailAndPassword } = await import(
+      "firebase/auth"
+    );
+    const auth = getAuth();
+    await signInWithEmailAndPassword(auth, email, password);
   }
 
-  async function signIn(email: string, password: string) {
-    if (!firebaseServices.auth) {
-      throw new Error("Firebase Auth not available");
-    }
+  async function signUp(email: string, password: string, name: string) {
+    const { getAuth, createUserWithEmailAndPassword, updateProfile } =
+      await import("firebase/auth");
+    const auth = getAuth();
 
-    try {
-      const { 
-        signInWithEmailAndPassword,
-        setPersistence,
-        browserSessionPersistence 
-      } = await import('firebase/auth');
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
 
-      await setPersistence(firebaseServices.auth, browserSessionPersistence);
-      await signInWithEmailAndPassword(firebaseServices.auth, email, password);
-    } catch (error) {
-      console.error("Error signing in:", error);
-      throw error;
+    if (userCredential.user) {
+      await updateProfile(userCredential.user, { displayName: name });
     }
   }
 
   async function signInWithGoogle() {
-    if (!firebaseServices.auth || !firebaseServices.db || !firebaseServices.googleProvider) {
-      throw new Error("Firebase services not available");
-    }
-
-    try {
-      const { 
-        signInWithPopup,
-        setPersistence,
-        browserSessionPersistence 
-      } = await import('firebase/auth');
-      
-      const { doc, getDoc, setDoc, serverTimestamp } = await import('firebase/firestore');
-
-      await setPersistence(firebaseServices.auth, browserSessionPersistence);
-
-      const result = await signInWithPopup(firebaseServices.auth, firebaseServices.googleProvider);
-      const user = result.user;
-
-      if (firebaseServices.db) {
-        const userDocRef = doc(firebaseServices.db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-
-        if (!userDoc.exists()) {
-          await setDoc(userDocRef, {
-            uid: user.uid,
-            displayName:
-              user.displayName || user.email?.split("@")[0] || "Google User",
-            email: user.email,
-            photoURL: user.photoURL,
-            emailNotifications: true,
-            newUploadsNotifications: true,
-            commentsNotification: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            lastLoginAt: serverTimestamp(),
-            provider: "google",
-          });
-          console.log("User document created during Google signin for:", user.email);
-        }
-      }
-    } catch (error) {
-      console.error("Error signing in with Google:", error);
-      throw error;
-    }
+    const { getAuth, signInWithPopup, GoogleAuthProvider } = await import(
+      "firebase/auth"
+    );
+    const auth = getAuth();
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
   }
 
   async function logout() {
-    if (!firebaseServices.auth) {
-      throw new Error("Firebase Auth not available");
-    }
-
-    try {
-      const { signOut } = await import('firebase/auth');
-      await signOut(firebaseServices.auth);
-    } catch (error) {
-      console.error("Error signing out:", error);
-      throw error;
-    }
+    const { getAuth, signOut } = await import("firebase/auth");
+    const auth = getAuth();
+    await signOut(auth);
   }
 
   async function resetPassword(email: string) {
-    if (!firebaseServices.auth) {
-      throw new Error("Firebase Auth not available");
-    }
-
-    try {
-      const { sendPasswordResetEmail } = await import('firebase/auth');
-      await sendPasswordResetEmail(firebaseServices.auth, email);
-    } catch (error) {
-      console.error("Error sending password reset email:", error);
-      throw error;
-    }
+    const { getAuth, sendPasswordResetEmail } = await import("firebase/auth");
+    const auth = getAuth();
+    await sendPasswordResetEmail(auth, email);
   }
 
   const value = {
