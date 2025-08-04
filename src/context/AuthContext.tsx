@@ -28,66 +28,82 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Wait a bit for window to be fully ready
+        // Wait for window to be ready
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        const { getAuth } = await import("@/lib/firebase");
-        const auth = getAuth();
+        console.log("🔄 Initializing Firebase directly...");
 
-        if (!auth) {
-          console.error("❌ Auth service not available");
-          setLoading(false);
-          return;
+        // Direct Firebase initialization
+        const { initializeApp, getApps } = await import("firebase/app");
+        const {
+          getAuth,
+          onAuthStateChanged,
+          setPersistence,
+          browserSessionPersistence,
+        } = await import("firebase/auth");
+
+        const firebaseConfig = {
+          apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId:
+            process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+        };
+
+        const app =
+          getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+        const auth = getAuth(app);
+
+        console.log("✅ Firebase initialized, Auth available:", !!auth);
+
+        // Set persistence
+        try {
+          await setPersistence(auth, browserSessionPersistence);
+          console.log("✅ Auth persistence set");
+        } catch (persistenceError) {
+          console.warn("⚠️ Auth persistence failed:", persistenceError);
         }
 
-        console.log("✅ Auth service available, setting up listener...");
-
-        const { onAuthStateChanged } = await import("firebase/auth");
-
+        // Set up auth listener
         unsubscribe = onAuthStateChanged(auth, async (user) => {
           console.log(
             "🔄 Auth state changed:",
             user ? `User: ${user.email}` : "No user"
           );
-
           setUser(user);
 
           if (user) {
             // Optional: Create user document
             try {
-              const { getDb } = await import("@/lib/firebase");
-              const db = getDb();
+              const { getFirestore, doc, getDoc, setDoc, serverTimestamp } =
+                await import("firebase/firestore");
+              const db = getFirestore(app);
 
-              if (db) {
-                const { doc, getDoc, setDoc, serverTimestamp } = await import(
-                  "firebase/firestore"
-                );
-                const userRef = doc(db, "users", user.uid);
-                const userDoc = await getDoc(userRef);
+              const userRef = doc(db, "users", user.uid);
+              const userDoc = await getDoc(userRef);
 
-                if (!userDoc.exists()) {
-                  await setDoc(userRef, {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName:
-                      user.displayName ||
-                      user.email?.split("@")[0] ||
-                      "Unknown User",
-                    photoURL: user.photoURL,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp(),
-                    lastLoginAt: serverTimestamp(),
-                  });
-                  console.log("✅ User document created");
-                }
+              if (!userDoc.exists()) {
+                await setDoc(userRef, {
+                  uid: user.uid,
+                  email: user.email,
+                  displayName:
+                    user.displayName ||
+                    user.email?.split("@")[0] ||
+                    "Unknown User",
+                  photoURL: user.photoURL,
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp(),
+                  lastLoginAt: serverTimestamp(),
+                });
+                console.log("✅ User document created");
               }
             } catch (docError) {
               console.warn("⚠️ User document creation failed:", docError);
-              // Don't fail auth because of this
             }
           }
 
-          console.log("✅ Setting loading to false");
           setLoading(false);
         });
       } catch (error) {
@@ -106,61 +122,146 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function signIn(email: string, password: string) {
-    const { getAuth } = await import("@/lib/firebase");
-    const auth = getAuth();
-    if (!auth) throw new Error("Auth not available");
+    console.log("🔄 signIn called");
 
-    const { signInWithEmailAndPassword } = await import("firebase/auth");
-    await signInWithEmailAndPassword(auth, email, password);
+    try {
+      const { initializeApp, getApps } = await import("firebase/app");
+      const { getAuth, signInWithEmailAndPassword } = await import(
+        "firebase/auth"
+      );
+
+      const firebaseConfig = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      };
+
+      const app =
+        getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+      const auth = getAuth(app);
+
+      console.log("✅ Auth available for signIn:", !!auth);
+
+      if (!auth) {
+        throw new Error("Auth service not available");
+      }
+
+      await signInWithEmailAndPassword(auth, email, password);
+      console.log("✅ signInWithEmailAndPassword completed");
+    } catch (error) {
+      console.error("❌ signIn error:", error);
+      throw error;
+    }
   }
 
   async function signUp(email: string, password: string, name: string) {
-    const { getAuth } = await import("@/lib/firebase");
-    const auth = getAuth();
-    if (!auth) throw new Error("Auth not available");
+    try {
+      const { initializeApp, getApps } = await import("firebase/app");
+      const { getAuth, createUserWithEmailAndPassword, updateProfile } =
+        await import("firebase/auth");
 
-    const { createUserWithEmailAndPassword, updateProfile } = await import(
-      "firebase/auth"
-    );
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
+      const firebaseConfig = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      };
 
-    if (userCredential.user) {
-      await updateProfile(userCredential.user, { displayName: name });
+      const app =
+        getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+      const auth = getAuth(app);
+
+      if (!auth) {
+        throw new Error("Auth service not available");
+      }
+
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+    } catch (error) {
+      console.error("❌ signUp error:", error);
+      throw error;
     }
   }
 
   async function signInWithGoogle() {
-    const { getAuth } = await import("@/lib/firebase");
-    const auth = getAuth();
-    if (!auth) throw new Error("Auth not available");
+    console.log("🔄 signInWithGoogle called");
 
-    const { signInWithPopup, GoogleAuthProvider } = await import(
-      "firebase/auth"
-    );
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const { initializeApp, getApps } = await import("firebase/app");
+      const { getAuth, signInWithPopup, GoogleAuthProvider } = await import(
+        "firebase/auth"
+      );
+
+      const firebaseConfig = {
+        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      };
+
+      const app =
+        getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+      const auth = getAuth(app);
+
+      console.log("✅ Auth available for Google signIn:", !!auth);
+
+      if (!auth) {
+        throw new Error("Auth service not available");
+      }
+
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      console.log("✅ signInWithPopup completed");
+    } catch (error) {
+      console.error("❌ signInWithGoogle error:", error);
+      throw error;
+    }
   }
 
   async function logout() {
-    const { getAuth } = await import("@/lib/firebase");
-    const auth = getAuth();
-    if (!auth) throw new Error("Auth not available");
+    try {
+      const { getAuth, signOut } = await import("firebase/auth");
+      const auth = getAuth();
 
-    const { signOut } = await import("firebase/auth");
-    await signOut(auth);
+      if (!auth) {
+        throw new Error("Auth service not available");
+      }
+
+      await signOut(auth);
+    } catch (error) {
+      console.error("❌ logout error:", error);
+      throw error;
+    }
   }
 
   async function resetPassword(email: string) {
-    const { getAuth } = await import("@/lib/firebase");
-    const auth = getAuth();
-    if (!auth) throw new Error("Auth not available");
+    try {
+      const { getAuth, sendPasswordResetEmail } = await import("firebase/auth");
+      const auth = getAuth();
 
-    const { sendPasswordResetEmail } = await import("firebase/auth");
-    await sendPasswordResetEmail(auth, email);
+      if (!auth) {
+        throw new Error("Auth service not available");
+      }
+
+      await sendPasswordResetEmail(auth, email);
+    } catch (error) {
+      console.error("❌ resetPassword error:", error);
+      throw error;
+    }
   }
 
   const value = {
