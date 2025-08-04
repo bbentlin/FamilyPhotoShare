@@ -8,52 +8,76 @@ import Image from "next/image";
 import { FirebaseError } from "@/types";
 
 export default function LoginPage() {
+  const { signIn, signInWithGoogle, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
-  const router = useRouter();
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
+    setError("");
 
     try {
+      console.log("🔄 Attempting to sign in...");
       await signIn(email, password);
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      setError(
-        (err as FirebaseError)?.message || "Failed to sign in. Please check your credentials."
-      );
+      console.log("✅ Sign in successful");
+    } catch (error: any) {
+      console.error("❌ Sign in error:", error);
+      if (error.message === "Auth not available") {
+        setError(
+          "Authentication service is not available. Please refresh the page and try again."
+        );
+      } else {
+        setError(error.message || "Failed to sign in");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
     setError("");
-    setIsGoogleLoading(true);
 
     try {
+      console.log("🔄 Attempting Google sign in...");
       await signInWithGoogle();
-      router.push("/dashboard");
-    } catch (err: unknown) {
-      if ((err as FirebaseError).code === "auth/popup-closed-by-user") {
-        setError("Sign-in was cancelled. Please try again.");
-      } else if ((err as FirebaseError).code === "auth/popup-blocked") {
-        setError("Popup was blocked. Please allow popups and try again.");
-      } else {
+      console.log("✅ Google sign in successful");
+    } catch (error: any) {
+      console.error("❌ Google sign in error:", error);
+      if (error.message === "Auth not available") {
         setError(
-          (err as FirebaseError).message || "Failed to sign in with Google. Please try again."
+          "Authentication service is not available. Please refresh the page and try again."
         );
+      } else {
+        setError(error.message || "Failed to sign in with Google");
       }
     } finally {
-      setIsGoogleLoading(false);
+      setIsLoading(false);
     }
   };
+
+  // Show error if auth service is not available
+  if (error.includes("not available")) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Service Unavailable
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -94,10 +118,10 @@ export default function LoginPage() {
         <div>
           <button
             onClick={handleGoogleSignIn}
-            disabled={isGoogleLoading || isLoading}
+            disabled={isLoading}
             className="w-full flex justify-center items-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray300 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isGoogleLoading ? (
+            {isLoading ? (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700 dark:border-gray-300 mr-2"></div>
                 Signing in...
@@ -202,7 +226,7 @@ export default function LoginPage() {
           <div>
             <button
               type="submit"
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading}
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 dark:disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
               {isLoading ? "Signing in..." : "Sign in"}

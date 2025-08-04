@@ -12,22 +12,31 @@ const firebaseConfig = {
 // Initialize Firebase app safely
 let app: FirebaseApp;
 
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-} catch (error) {
-  console.error('Firebase initialization error:', error);
-  // Create a dummy app to prevent crashes
+if (typeof window !== 'undefined') {
+  try {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+    app = {} as FirebaseApp;
+  }
+} else {
   app = {} as FirebaseApp;
 }
 
-// Safe service getters - NEVER return null immediately
+// Safe service getters
 export const getAuth = () => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+    console.log('❌ getAuth called on server side');
+    return null;
+  }
+  
   try {
-    const { getAuth } = require('firebase/auth');
-    return getAuth(app);
+    const { getAuth: getFirebaseAuth } = require('firebase/auth');
+    const auth = getFirebaseAuth(app);
+    console.log('✅ Auth service created:', !!auth);
+    return auth;
   } catch (error) {
-    console.error('Auth initialization error:', error);
+    console.error('❌ Auth initialization error:', error);
     return null;
   }
 };
@@ -46,8 +55,8 @@ export const getDb = () => {
 export const getStorage = () => {
   if (typeof window === 'undefined') return null;
   try {
-    const { getStorage } = require('firebase/storage');
-    return getStorage(app);
+    const { getStorage: getFirebaseStorage } = require('firebase/storage');
+    return getFirebaseStorage(app);
   } catch (error) {
     console.error('Storage initialization error:', error);
     return null;
