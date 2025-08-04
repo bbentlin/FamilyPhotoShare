@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useParams } from "next/navigation";
 import { doc, collection, query, where, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, getDb } from "@/lib/firebase";
 import { Album, Photo } from "@/types";
 import Link from "next/link";
 import PhotoImage from "@/components/PhotoImage";
@@ -27,6 +27,10 @@ export default function AlbumPage() {
   // State
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [album, setAlbum] = useState<Album | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+
+  const db = getDb();
 
   // CACHED ALBUM DATA
   const albumDocRef = useMemo(
@@ -35,7 +39,7 @@ export default function AlbumPage() {
   );
 
   const {
-    data: album,
+    data: cachedAlbum,
     loading: albumLoading,
     error: albumError,
     refetch: refetchAlbum,
@@ -58,7 +62,7 @@ export default function AlbumPage() {
   }, [albumId]);
 
   const {
-    data: photos,
+    data: cachedPhotos,
     loading: photosLoading,
     error: photosError,
     refetch: refetchPhotos,
@@ -112,6 +116,54 @@ export default function AlbumPage() {
       setSelectedPhoto(photos[newIndex]);
     }
   }, [selectedPhotoIndex, photos]);
+
+  // Fetch album data from Firestore
+  useEffect(() => {
+    if (!db) return;
+
+    const fetchAlbumData = async () => {
+      try {
+        const { doc, getDoc, collection, query, where, getDocs } = await import(
+          "firebase/firestore"
+        );
+
+        // Fetch album details
+        const albumDoc = doc(db, "albums", albumId);
+        const albumSnapshot = await getDoc(albumDoc);
+
+        if (albumSnapshot.exists()) {
+          const albumData = {
+            id: albumSnapshot.id,
+            ...albumSnapshot.data(),
+          } as Album;
+          setAlbum(albumData);
+
+          // Fetch photos for the album
+          const photosQuery = query(
+            collection(db, "photos"),
+            where("albums", "array-contains", albumId),
+            orderBy("createdAt", "desc")
+          );
+          const photosSnapshot = await getDocs(photosQuery);
+          const photosData = photosSnapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Photo[];
+          setPhotos(photosData);
+        } else {
+          setAlbum(null);
+        }
+      } catch (error) {
+        console.error("Error fetching album:", error);
+      }
+    };
+
+    fetchAlbumData();
+  }, [albumId, db]);
+
+  if (!db) {
+    return <div>Database not available</div>;
+  }
 
   // Loading state
   if (loading || albumLoading || photosLoading) {

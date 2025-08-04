@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { collection, query, orderBy, limit, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import {
   DndContext,
   closestCenter,
@@ -258,14 +258,14 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
   );
 }
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   const recentPhotosQuery = useMemo(() => {
     if (!user) return null;
     return query(
-      collection(db, "photos"),
+      collection(getDb(), "photos"),
       orderBy("createdAt", "desc"),
       limit(12)
     );

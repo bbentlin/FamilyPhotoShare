@@ -14,7 +14,7 @@ import {
   orderBy,
   where,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album, Photo } from "@/types";
@@ -34,6 +34,31 @@ export default function EditAlbumPage() {
   const params = useParams();
   const albumId = params.id as string;
 
+  // Add this near the top of your component
+  const db = getDb();
+
+  // If db is not available, show error state
+  if (!db) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Database Error
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Firestore is not available
+          </p>
+          <Link
+            href="/albums"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Albums
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const [albumData, setAlbumData] = useState({
     title: "",
     description: "",
@@ -48,7 +73,7 @@ export default function EditAlbumPage() {
   // CACHED ALBUM DATA
   const albumDocRef = useMemo(
     () => (albumId ? doc(db, "albums", albumId) : null),
-    [albumId]
+    [albumId, db]
   );
 
   const {
@@ -68,7 +93,7 @@ export default function EditAlbumPage() {
   const photosQuery = useMemo(() => {
     if (!user) return null;
     return query(collection(db, "photos"), orderBy("createdAt", "desc"));
-  }, [user]);
+  }, [user, db]);
 
   const {
     data: allPhotos,
@@ -90,7 +115,7 @@ export default function EditAlbumPage() {
       where("albums", "array-contains", albumId),
       orderBy("createdAt", "desc")
     );
-  }, [albumId]);
+  }, [albumId, db]);
 
   const {
     data: albumPhotos,

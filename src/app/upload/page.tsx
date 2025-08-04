@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { storage, db } from "@/lib/firebase";
+import { getStorage, getDb } from "@/lib/firebase";
 import { toast } from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
@@ -27,6 +27,9 @@ export default function UploadPage() {
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [storageError, setStorageError] = useState<string>("");
+
+  const storage = getStorage();
+  const db = getDb();
 
   // Client-side only check
   useEffect(() => {
@@ -73,7 +76,9 @@ export default function UploadPage() {
   // Handle file upload
   const uploadFile = useCallback(
     async (file: File, fileId: string) => {
-      if (!user) return;
+      if (!user || !storage || !db) {
+        throw new Error("User not authenticated or services not available");
+      }
 
       try {
         // Update progress to show upload starting
@@ -149,7 +154,7 @@ export default function UploadPage() {
         toast.error(`Failed to upload ${file.name}`);
       }
     },
-    [user]
+    [user, storage, db]
   );
 
   // Handle file selection

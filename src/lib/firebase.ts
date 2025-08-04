@@ -9,88 +9,55 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app
+// Initialize Firebase app safely
 let app: FirebaseApp;
 
-if (typeof window !== 'undefined') {
+try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-} else {
-  // Create a minimal app for server side
+} catch (error) {
+  console.error('Firebase initialization error:', error);
+  // Create a dummy app to prevent crashes
   app = {} as FirebaseApp;
 }
 
-// SAFE EXPORTS - These will work immediately
-export const getFirebaseAuth = async () => {
+// Safe service getters - NEVER return null immediately
+export const getAuth = () => {
   if (typeof window === 'undefined') return null;
-
   try {
-    const { getAuth } = await import('firebase/auth');
+    const { getAuth } = require('firebase/auth');
     return getAuth(app);
   } catch (error) {
-    console.error('Failed to initialize Firebase Auth:', error);
+    console.error('Auth initialization error:', error);
     return null;
   }
 };
 
-export const getFirebaseDb = async () => {
+export const getDb = () => {
   if (typeof window === 'undefined') return null;
-
   try {
-    const { getFirestore } = await import('firebase/firestore');
+    const { getFirestore } = require('firebase/firestore');
     return getFirestore(app);
   } catch (error) {
-    console.error('Failed to initialize Firestore:', error);
+    console.error('Firestore initialization error:', error);
     return null;
   }
 };
 
-export const getFirebaseStorage = async () => {
+export const getStorage = () => {
   if (typeof window === 'undefined') return null;
-
   try {
-    const { getStorage } = await import('firebase/storage');
+    const { getStorage } = require('firebase/storage');
     return getStorage(app);
   } catch (error) {
-    console.error('Failed to initialize Firebase Storage:', error);
+    console.error('Storage initialization error:', error);
     return null;
   }
 };
 
-export const getGoogleProvider = async () => {
-  if (typeof window === 'undefined') return null;
+// Legacy exports for backward compatibility
+export const auth = typeof window !== 'undefined' ? getAuth() : null;
+export const db = typeof window !== 'undefined' ? getDb() : null;
+export const storage = typeof window !== 'undefined' ? getStorage() : null;
 
-  try {
-    const { GoogleAuthProvider } = await import('firebase/auth');
-    return new GoogleAuthProvider();
-  } catch (error) {
-    console.error('Failed to initialize Google Provider:', error);
-    return null;
-  }
-};
-
-// IMMEDIATE EXPORTS - Initialize synchronously on client
-let auth: any = null;
-let db: any = null;
-let storage: any = null;
-let googleProvider: any = null;
-
-if (typeof window !== 'undefined') {
-  // Initialize immediately on client side
-  import('firebase/auth').then(({ getAuth, GoogleAuthProvider }) => {
-    auth = getAuth(app);
-    googleProvider = new GoogleAuthProvider();
-  });
-
-  import('firebase/firestore').then(({ getFirestore }) => {
-    db = getFirestore(app);
-  });
-
-  import('firebase/storage').then(({ getStorage }) => {
-    storage = getStorage(app);
-  });
-}
-
-// Safe exports that won't be null
-export { auth, db, storage, googleProvider };
 export default app;
 

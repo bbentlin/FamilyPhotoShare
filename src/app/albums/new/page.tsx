@@ -10,7 +10,7 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import Link from "next/link";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Album } from "@/types";
@@ -23,7 +23,12 @@ import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 
+const db = getDb();
+
 export default function NewAlbumPage() {
+  if (!db) {
+    return <div>Database not available</div>;
+  }
   const { user, loading } = useAuth();
   const router = useRouter();
   const [albumData, setAlbumData] = useState({

@@ -11,11 +11,12 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
-import { db } from "@/lib/firebase";
+import { db, getDb } from "@/lib/firebase";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const db = getDb();
 
   // User profile states
   const [displayName, setDisplayName] = useState("");
@@ -268,6 +269,14 @@ export default function SettingsPage() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!db) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div>Database not available</div>
       </div>
     );
   }
@@ -641,4 +650,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

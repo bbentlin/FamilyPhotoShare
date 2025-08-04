@@ -13,7 +13,7 @@ import {
   getDocs,
   updateDoc, // Just import it normally
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import PhotoImage from "@/components/PhotoImage";
@@ -29,10 +29,14 @@ export default function AlbumsPage() {
   const [deletingAlbumId, setDeletingAlbumId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [dbLoading, setDbLoading] = useState(true);
+
+  const db = getDb();
 
   // USE CACHED ALBUMS HOOK
   const {
-    data: albums,
+    data: cachedAlbums,
     loading: isLoading,
     error,
     refetch,
@@ -45,6 +49,43 @@ export default function AlbumsPage() {
       router.push("/login");
     }
   }, [user, loading, router]);
+
+  // Fetch albums from the database
+  useEffect(() => {
+    const fetchAlbums = async () => {
+      if (!user || !db) {
+        setDbLoading(false);
+        return;
+      }
+
+      setDbLoading(true);
+
+      try {
+        const { collection, query, orderBy, getDocs } = await import(
+          "firebase/firestore"
+        );
+        const albumsQuery = query(
+          collection(db, "albums"),
+          where("createdBy", "==", user.uid),
+          orderBy("updatedAt", "desc")
+        );
+        const albumsSnapshot = await getDocs(albumsQuery);
+
+        const fetchedAlbums = albumsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Album[];
+
+        setAlbums(fetchedAlbums);
+      } catch (error) {
+        console.error("Error fetching albums:", error);
+      } finally {
+        setDbLoading(false);
+      }
+    };
+
+    fetchAlbums();
+  }, [user, db]);
 
   // Delete album function
   const handleDeleteAlbum = useCallback(
@@ -110,12 +151,16 @@ export default function AlbumsPage() {
   };
 
   // Loading screen
-  if (loading || isLoading) {
+  if (loading || dbLoading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <LoadingSpinner message="Loading albums..." />
       </div>
     );
+  }
+
+  if (!db) {
+    return <div>Database not available</div>;
   }
 
   return (

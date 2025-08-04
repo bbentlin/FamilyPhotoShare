@@ -10,9 +10,9 @@ import {
   onSnapshot,
   serverTimestamp,
   doc,
-  getDoc
-} from 'firebase/firestore';
-import { db } from "@/lib/firebase";
+  getDoc,
+} from "firebase/firestore";
+import { getDb } from "@/lib/firebase";
 import { sendNotification } from "@/lib/notifications";
 
 interface Comment {
@@ -30,29 +30,34 @@ interface CommentsProps {
   photoOwnerName: string;
 }
 
-export default function Comments({ photoId, photoOwnerId, photoOwnerName }: CommentsProps) {
+export default function Comments({
+  photoId,
+  photoOwnerId,
+  photoOwnerName,
+}: CommentsProps) {
   const { user } = useAuth();
   const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState('');
+  const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const db = getDb();
 
   useEffect(() => {
     if (!photoId) return;
 
     const commentsQuery = query(
-      collection(db, 'comments'),
-      where('photoId', '==', photoId),
-      orderBy('createdAt', 'asc')
+      collection(db, "comments"),
+      where("photoId", "==", photoId),
+      orderBy("createdAt", "asc")
     );
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      const commentsData = snapshot.docs.map(doc => ({
+      const commentsData = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as Comment[];
       setComments(commentsData);
     });
-    
+
     return () => unsubscribe();
   }, [photoId]);
 
@@ -62,10 +67,10 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
 
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'comments'), {
+      await addDoc(collection(db, "comments"), {
         text: newComment.trim(),
-        authorId:  user.uid,
-        authorName: user.displayName || user.email || 'Anonymous',
+        authorId: user.uid,
+        authorName: user.displayName || user.email || "Anonymous",
         photoId: photoId,
         createdAt: serverTimestamp(),
       });
@@ -73,22 +78,28 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
       // Send notification if comment is not by photo owner
       if (user.uid !== photoOwnerId) {
         await sendNotification({
-          type: 'comment',
-          title: 'New Comment on Your Photo',
-          message: `${user.displayName || user.email} commented on your photo: "${newComment.trim()}"`,
+          type: "comment",
+          title: "New Comment on Your Photo",
+          message: `${
+            user.displayName || user.email
+          } commented on your photo: "${newComment.trim()}"`,
           photoId: photoId,
           triggeredBy: user.uid,
-          triggeredByName: user.displayName || user.email || 'Unknown User',
+          triggeredByName: user.displayName || user.email || "Unknown User",
         });
       }
 
-      setNewComment('');
+      setNewComment("");
     } catch (error) {
       console.error("Error adding comment:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!db) {
+    return <div>Comments unavailable</div>;
+  }
 
   return (
     <div className="mt-4">
@@ -105,7 +116,7 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a comment..."
-              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" 
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               disabled={isSubmitting}
             />
             <button
@@ -113,7 +124,7 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
               disabled={isSubmitting || !newComment.trim()}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Posting...' : 'Post'}
+              {isSubmitting ? "Posting..." : "Post"}
             </button>
           </div>
         </form>
@@ -127,7 +138,10 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
           </p>
         ) : (
           comments.map((comment) => (
-            <div key={comment.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
+            <div
+              key={comment.id}
+              className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -135,13 +149,13 @@ export default function Comments({ photoId, photoOwnerId, photoOwnerName }: Comm
                       {comment.authorName}
                     </span>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {comment.createdAt?.toDate?.()?.toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      }) || 'Just now'}
+                      {comment.createdAt?.toDate?.()?.toLocaleString("en-US", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }) || "Just now"}
                     </span>
                   </div>
                   <p className="text-gray-700 dark:text-gray-300 text-sm">

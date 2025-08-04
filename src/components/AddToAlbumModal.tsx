@@ -12,7 +12,7 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Photo, Album } from "@/types";
 import LoadingSpinner from "./LoadingSpinner";
@@ -38,6 +38,8 @@ export default function AddToAlbumModal({
   onSuccess,
 }: AddToAlbumModalProps) {
   const { user } = useAuth();
+  const db = getDb();
+
   const [selectedAlbum, setSelectedAlbum] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -180,6 +182,17 @@ export default function AddToAlbumModal({
   }, [user, refetchAlbums]);
 
   if (!isOpen) return null;
+
+  if (!db) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+          <p>Database not available</p>
+          <button onClick={onClose}>Close</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
