@@ -1,25 +1,37 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 
 export default function HomePage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // Debug logging
+  useEffect(() => {
+    console.log("HomePage render:", {
+      user: !!user,
+      loading,
+      userEmail: user?.email,
+      timestamp: new Date().toISOString(),
+    });
+  }, [user, loading]);
+
   // Redirect authenticated users to dashboard
   useEffect(() => {
     if (user && !loading) {
-      router.replace("/dashboard");
+      console.log("Redirecting to dashboard...", user.email);
+      router.push("/dashboard"); // Use push instead of replace
     }
   }, [user, loading, router]);
 
   // Show loading state
   if (loading) {
+    console.log("HomePage showing loading...");
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -32,8 +44,18 @@ export default function HomePage() {
 
   // Don't render landing page if user is authenticated
   if (user) {
-    return null;
+    console.log("User exists, should redirect...", user.email);
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
+
+  console.log("Showing landing page...");
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

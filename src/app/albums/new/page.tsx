@@ -23,14 +23,33 @@ import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 
-const db = getDb();
-
 export default function NewAlbumPage() {
-  if (!db) {
-    return <div>Database not available</div>;
-  }
   const { user, loading } = useAuth();
   const router = useRouter();
+  const db = getDb();
+
+  // Add error handling for missing db
+  if (!db) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Database Error
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Firestore is not available
+          </p>
+          <Link
+            href="/albums"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Albums
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const [albumData, setAlbumData] = useState({
     title: "",
     description: "",

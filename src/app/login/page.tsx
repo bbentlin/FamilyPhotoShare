@@ -19,13 +19,21 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
 
+    console.log("🔄 Login form submitted", { email });
+
     try {
       console.log("🔄 Attempting to sign in...");
       await signIn(email, password);
-      console.log("✅ Sign in successful");
+      console.log("✅ Sign in successful, should redirect...");
+
+      // Force redirect after successful login
+      setTimeout(() => {
+        console.log("🔄 Forcing redirect to dashboard...");
+        window.location.href = "/dashboard";
+      }, 1000);
     } catch (error: any) {
       console.error("❌ Sign in error:", error);
-      if (error.message === "Auth not available") {
+      if (error.message.includes("Auth not available")) {
         setError(
           "Authentication service is not available. Please refresh the page and try again."
         );
