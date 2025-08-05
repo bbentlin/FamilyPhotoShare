@@ -28,19 +28,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Wait for window to be ready
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        console.log("🔄 Initializing Firebase directly...");
-
-        // Direct Firebase initialization
         const { initializeApp, getApps } = await import("firebase/app");
-        const {
-          getAuth,
-          onAuthStateChanged,
-          setPersistence,
-          browserSessionPersistence,
-        } = await import("firebase/auth");
+        const { getAuth, onAuthStateChanged } = await import("firebase/auth");
 
         const firebaseConfig = {
           apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -56,32 +45,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
         const auth = getAuth(app);
 
-        console.log("✅ Firebase initialized, Auth available:", !!auth);
-
-        // Set persistence
-        try {
-          await setPersistence(auth, browserSessionPersistence);
-          console.log("✅ Auth persistence set");
-        } catch (persistenceError) {
-          console.warn("⚠️ Auth persistence failed:", persistenceError);
-        }
-
-        // Set up auth listener
         unsubscribe = onAuthStateChanged(auth, async (user) => {
           console.log(
             "🔄 Auth state changed:",
             user ? `User: ${user.email}` : "No user"
           );
           setUser(user);
-          setLoading(false);
+          setLoading(false); // Set loading to false after checking auth state
 
           if (user) {
-            // Optional: Create user document in the background
+            // This part is non-blocking. If it fails, the app will still load.
             try {
               const { getFirestore, doc, getDoc, setDoc, serverTimestamp } =
                 await import("firebase/firestore");
               const db = getFirestore(app);
-
               const userRef = doc(db, "users", user.uid);
               const userDoc = await getDoc(userRef);
 
@@ -98,15 +75,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   updatedAt: serverTimestamp(),
                   lastLoginAt: serverTimestamp(),
                 });
-                console.log("✅ User document created");
+                console.log("✅ User document created in Firestore.");
               }
             } catch (docError) {
-              console.warn("⚠️ User document creation failed:", docError);
+              console.warn(
+                "⚠️ Firestore user document check/creation failed:",
+                docError
+              );
             }
           }
         });
       } catch (error) {
-        console.error("❌ Auth initialization failed:", error);
+        console.error("❌ CRITICAL: Firebase initialization failed.", error);
+        // THIS IS THE CRITICAL FIX: Ensure loading is always set to false on error.
         setLoading(false);
       }
     };

@@ -12,13 +12,11 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // When loading is finished, if there is a user, redirect to the dashboard.
     if (!loading && user) {
       router.push("/dashboard");
     }
   }, [user, loading, router]);
 
-  // While loading, show a spinner.
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -27,7 +25,6 @@ export default function HomePage() {
     );
   }
 
-  // If not loading and no user, show the full landing page.
   if (!user) {
     return (
       <div className="relative min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
