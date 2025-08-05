@@ -73,9 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             user ? `User: ${user.email}` : "No user"
           );
           setUser(user);
+          setLoading(false);
 
           if (user) {
-            // Optional: Create user document
+            // Optional: Create user document in the background
             try {
               const { getFirestore, doc, getDoc, setDoc, serverTimestamp } =
                 await import("firebase/firestore");
@@ -103,8 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.warn("⚠️ User document creation failed:", docError);
             }
           }
-
-          setLoading(false);
         });
       } catch (error) {
         console.error("❌ Auth initialization failed:", error);

@@ -8,13 +8,23 @@ import Image from "next/image";
 import { FirebaseError } from "@/types";
 
 export default function LoginPage() {
+  console.log("🚨 LOGIN PAGE LOADED - FIRST LOG"); // Add this line
+
   const { signIn, signInWithGoogle, loading } = useAuth();
+
+  console.log("🚨 AUTH CONTEXT LOADED:", {
+    signInExists: !!signIn,
+    signInWithGoogleExists: !!signInWithGoogle,
+    loading,
+  }); // Add this line
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("🚨 FORM SUBMITTED - THIS SHOULD SHOW"); // Add this as FIRST line
     e.preventDefault();
     setIsLoading(true);
     setError("");
@@ -25,12 +35,6 @@ export default function LoginPage() {
       console.log("🔄 Attempting to sign in...");
       await signIn(email, password);
       console.log("✅ Sign in successful, should redirect...");
-
-      // Force redirect after successful login
-      setTimeout(() => {
-        console.log("🔄 Forcing redirect to dashboard...");
-        window.location.href = "/dashboard";
-      }, 1000);
     } catch (error: any) {
       console.error("❌ Sign in error:", error);
       if (error.message.includes("Auth not available")) {
