@@ -173,33 +173,14 @@ export default function PhotoModal({
               showComments ? "h-3/4" : "h-full"
             }`}
           >
-            {/* Loading Spinner */}
-            {!isImageLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-              </div>
-            )}
-
-            {/* Main Image */}
-            {photo.url ? (
-              <PhotoImage
-                src={photo.url}
-                alt={photo.title || "Photo"}
-                className="max-w-full max-h-full object-contain"
-                fill={true}
-                priority={true} // Modal images should load immediately
-                sizes="100vw"
-              />
-            ) : (
-              <SafeImage
-                src={photo.url}
-                alt={photo.title || "Photo"}
-                className="max-w-full max-h-full object-contain transition-opacity duration-300"
-                onLoad={() => setIsImageLoaded(true)}
-                onError={() => setIsImageLoaded(true)}
-                loading="eager"
-              />
-            )}
+            <PhotoImage
+              src={photo.url}
+              alt={photo.title || "Photo"}
+              className="max-w-full max-h-full object-contain"
+              fill={true}
+              priority={true}
+              sizes="100vw"
+            />
           </div>
 
           {/* COMMENTS (now full-width bottom) */}

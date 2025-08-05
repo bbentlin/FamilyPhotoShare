@@ -26,7 +26,11 @@ import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 export default function NewAlbumPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const db = getDb();
+
+  const [db, setDb] = useState<any>(null);
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
 
   // Add error handling for missing db
   if (!db) {

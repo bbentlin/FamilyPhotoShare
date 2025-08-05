@@ -128,7 +128,7 @@ export default function SetCoverPhotoModal({
                   }`}
                   onClick={() => handlePhotoSelect(photo)}
                 >
-                  <SafeImage 
+                  <SafeImage
                     src={photo.url}
                     alt={photo.title || "Photo"}
                     className="w-full h-full object-cover"

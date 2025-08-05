@@ -18,28 +18,18 @@ const app: FirebaseApp =
 export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
 
-export let storage: FirebaseStorage | null;
-try {
-  storage = getFirebaseStorage(app);
-} catch (e) {
-  console.warn("⚠️ Firebase Storage initialization failed:", e);
-  storage = null;
-}
-
 /**
- * Back-compat helper for code doing `import { getDb } from '@/lib/firebase'`
- */
-export function getDb(): Firestore {
-  return db;
-}
-
-/**
- * Back-compat helper for code doing `import { getStorage } from '@/lib/firebase'`
+ * Only initialize Firebase Storage on the client.
  */
 export function getStorage(): FirebaseStorage {
-  if (!storage) {
-    throw new Error("Firebase storage is not available");
+  if (typeof window === "undefined") {
+    throw new Error("Firebase Storage is not available on the server");
   }
-  return storage;
+  return getFirebaseStorage(app);
+}
+
+/** Back-compat for getDb() */
+export function getDb(): Firestore {
+  return db;
 }
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { getStorage, getDb } from "@/lib/firebase";
+import { getDb, getStorage } from "@/lib/firebase";
 import { toast } from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
@@ -28,8 +28,17 @@ export default function UploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const [storageError, setStorageError] = useState<string>("");
 
-  const storage = getStorage();
-  const db = getDb();
+  const [db, setDb] = useState<any>(null);
+  const [storage, setStorage] = useState<any>(null);
+
+  useEffect(() => {
+    setDb(getDb());
+    try {
+      setStorage(getStorage());
+    } catch {
+      // storage not available on server
+    }
+  }, []);
 
   // Client-side only check
   useEffect(() => {
@@ -38,8 +47,8 @@ export default function UploadPage() {
     // Check Firebase Storage availability
     const checkStorage = async () => {
       try {
-        const { storage } = await import("@/lib/firebase");
-        if (!storage) {
+        const storageInstance = getStorage();
+        if (!storageInstance) {
           setStorageError("Firebase Storage is not available");
         }
       } catch (error) {
@@ -72,6 +81,9 @@ export default function UploadPage() {
       </div>
     );
   }
+
+  if (!db) return <p>Loading DB…</p>;
+  if (!storage) return <p>Loading Storage…</p>;
 
   // Handle file upload
   const uploadFile = useCallback(

@@ -1,32 +1,36 @@
 "use client";
 
-import { useState, useEffect } from "react"; // Import useEffect
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
-import { FirebaseError } from "@/types";
 
 export default function LoginPage() {
-  // Get user and loading state to detect when login is successful
-  const { signIn, signInWithGoogle, user, loading } = useAuth();
+  console.log("🚨 LOGIN PAGE LOADED - FIRST LOG"); 
+
+  const { signIn, signInWithGoogle, loading, user } = useAuth();
   const router = useRouter();
 
-  // This useEffect will run when the user state changes.
-  // If a user is logged in, it redirects to the dashboard.
-  useEffect(() => {
-    if (!loading && user) {
-      router.push("/dashboard");
-    }
-  }, [user, loading, router]);
+  console.log("🚨 AUTH CONTEXT LOADED:", {
+    signInExists: !!signIn,
+    signInWithGoogleExists: !!signInWithGoogle,
+    loading,
+  }); 
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!loading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, loading, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log("🚨 FORM SUBMITTED - THIS SHOULD SHOW"); // Add this as FIRST line
+    console.log("🚨 FORM SUBMITTED - THIS SHOULD SHOW"); 
     e.preventDefault();
     setIsLoading(true);
     setError("");
@@ -36,7 +40,7 @@ export default function LoginPage() {
     try {
       console.log("🔄 Attempting to sign in...");
       await signIn(email, password);
-      console.log("✅ Sign in successful, redirecting...");
+      console.log("✅ Sign in successful, should redirect...");
     } catch (error: any) {
       console.error("❌ Sign in error:", error);
       if (error.message.includes("Auth not available")) {
@@ -58,7 +62,7 @@ export default function LoginPage() {
     try {
       console.log("🔄 Attempting Google sign in...");
       await signInWithGoogle();
-      console.log("✅ Google sign in successful, redirecting...");
+      console.log("✅ Google sign in successful");
     } catch (error: any) {
       console.error("❌ Google sign in error:", error);
       if (error.message === "Auth not available") {
@@ -73,18 +77,29 @@ export default function LoginPage() {
     }
   };
 
-  // While authenticating or if user is already logged in, show a spinner
-  if (loading || user) {
+  // Show error if auth service is not available
+  if (error.includes("not available")) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Service Unavailable
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Refresh Page
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
         <div>
           <div className="flex justify-center">
             <div className="relative h-16 w-16">

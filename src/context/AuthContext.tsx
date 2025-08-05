@@ -7,9 +7,8 @@ import {
   useState,
   ReactNode,
 } from "react";
-import { User } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
 import {
+  User,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -20,15 +19,16 @@ import {
   sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
+  signUp(email: string, password: string, name: string): Promise<void>;
+  signIn(email: string, password: string): Promise<void>;
+  signInWithGoogle(): Promise<void>;
+  logout(): Promise<void>;
+  resetPassword(email: string): Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -40,37 +40,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    console.log("🔄 Starting auth initialization...");
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("🔄 Auth state changed:", user ? user.email : "null");
-      setUser(user);
-      setLoading(false);
+    console.log("🔄 [Auth] initializing…");
+    let listenerFired = false;
 
-      if (user) {
-        // Non-blocking Firestore user document creation
-        try {
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
-          if (!userSnap.exists()) {
-            await setDoc(userRef, {
-              uid: user.uid,
-              email: user.email,
-              displayName:
-                user.displayName || user.email?.split("@")[0] || "Unknown User",
-              photoURL: user.photoURL,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-              lastLoginAt: serverTimestamp(),
-            });
-            console.log("✅ Firestore user document created");
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      async (u) => {
+        listenerFired = true;
+        console.log("🔄 [Auth] onAuthStateChanged:", u?.email ?? "null");
+        setUser(u);
+        setLoading(false);
+
+        if (u) {
+          // non-blocking user doc creation
+          try {
+            const userRef = doc(db, "users", u.uid);
+            const snap = await getDoc(userRef);
+            if (!snap.exists()) {
+              await setDoc(userRef, {
+                uid: u.uid,
+                email: u.email,
+                displayName: u.displayName || u.email!.split("@")[0],
+                photoURL: u.photoURL,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                lastLoginAt: serverTimestamp(),
+              });
+              console.log("✅ [Auth] Firestore user doc created");
+            }
+          } catch (e) {
+            console.warn("⚠️ [Auth] could not create user doc:", e);
           }
-        } catch (e) {
-          console.warn("⚠️ Firestore user creation failed:", e);
         }
+      },
+      (err) => {
+        console.error("❌ [Auth] listener error:", err);
+        setLoading(false);
       }
-    });
+    );
 
-    return () => unsubscribe();
+    // fallback after 5s in case onAuthStateChanged never fires
+    const timeout = setTimeout(() => {
+      if (!listenerFired) {
+        console.warn("⚠️ [Auth] listener never fired, forcing loading→false");
+        setLoading(false);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   async function signIn(email: string, password: string) {
@@ -97,23 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await sendPasswordResetEmail(auth, email);
   }
 
-  const value = {
-    user,
-    loading,
-    signUp,
-    signIn,
-    signInWithGoogle,
-    logout,
-    resetPassword,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        logout,
+        resetPassword,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }

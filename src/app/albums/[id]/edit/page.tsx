@@ -34,8 +34,10 @@ export default function EditAlbumPage() {
   const params = useParams();
   const albumId = params.id as string;
 
-  // Add this near the top of your component
-  const db = getDb();
+  const [db, setDb] = useState<any>(null);
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
 
   // If db is not available, show error state
   if (!db) {

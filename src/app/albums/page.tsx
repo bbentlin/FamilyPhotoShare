@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -31,8 +31,11 @@ export default function AlbumsPage() {
   const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [dbLoading, setDbLoading] = useState(true);
+  const [db, setDb] = useState<any>(null);
 
-  const db = getDb();
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
 
   // USE CACHED ALBUMS HOOK
   const {

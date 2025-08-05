@@ -52,7 +52,7 @@ const AlbumModalLoadingSpinner = () => (
   </div>
 );
 
-// SortablePhoto component 
+// SortablePhoto component
 const SortablePhoto = React.memo(
   function SortablePhoto({
     photo,
@@ -138,6 +138,7 @@ const SortablePhoto = React.memo(
       <div
         ref={setNodeRef}
         style={style}
+        {...attributes}
         className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
           isDragging ? "opacity-50 z-50" : ""
         }`}
@@ -209,7 +210,7 @@ const SortablePhoto = React.memo(
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v2M6 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
             />
           </svg>
         </button>

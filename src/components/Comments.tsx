@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   collection,
@@ -39,10 +39,14 @@ export default function Comments({
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const db = getDb();
+  const [db, setDb] = useState<any>(null);
 
   useEffect(() => {
-    if (!photoId) return;
+    setDb(getDb());
+  }, []);
+
+  useEffect(() => {
+    if (!photoId || !db) return;
 
     const commentsQuery = query(
       collection(db, "comments"),
@@ -59,11 +63,11 @@ export default function Comments({
     });
 
     return () => unsubscribe();
-  }, [photoId]);
+  }, [photoId, db]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newComment.trim()) return;
+    if (!user || !newComment.trim() || !db) return;
 
     setIsSubmitting(true);
     try {

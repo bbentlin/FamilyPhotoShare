@@ -122,23 +122,14 @@ a:focus-visible {
 @supports (-webkit-touch-callout: none) {
   /* iOS Safari only */
   .aspect-square {
+    aspect-ratio: 1 / 1;
     position: relative;
     width: 100%;
-    aspect-ratio: 1 / 1;
-  }
-  
-  .aspect-square::before {
-    content: '';
-    display: block;
-    padding-top: 100%;
   }
   
   .aspect-square > * {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Query,
   onSnapshot,
@@ -30,10 +30,7 @@ export function useCachedFirebaseQuery<T = DocumentData>(
   const queryRef = useRef<Query | null>(null);
 
   const fetchData = useCallback(async (skipCache = false) => {
-    if (!query) {
-      setLoading(false);
-      return;
-    }
+    if (!query) return { loading: false, data: []}
 
     try {
       const cacheKey = `${options.cacheKey}_${user?.uid || 'anonymous'}`;
@@ -61,13 +58,11 @@ export function useCachedFirebaseQuery<T = DocumentData>(
 
       // Fetch from Firebase
       const snapshot = await getDocs(query);
-      const freshData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as T[];
+      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as T));
+      setData(docs);
+      setLoading(false); // <-- make sure this is here!
 
       // Update state
-      setData(freshData);
       setIsStale(false);
       setLoading(false);
       setError(null);
@@ -75,7 +70,7 @@ export function useCachedFirebaseQuery<T = DocumentData>(
       // Cache the result
       firebaseCache.set(
         options.cacheKey,
-        freshData,
+        docs,
         { ttl: options.cacheTtl },
         { query: query.toString() },
         user?.uid
@@ -107,6 +102,7 @@ export function useCachedFirebaseQuery<T = DocumentData>(
         setData(freshData);
         setIsStale(false);
         setError(null);
+        setLoading(false);
 
         // Update cache with real-time data
         firebaseCache.set(
@@ -120,6 +116,7 @@ export function useCachedFirebaseQuery<T = DocumentData>(
       (err) => {
         console.error('Realtime listener error:', err);
         setError(err.message);
+        setLoading(false);
       }
     );
 
@@ -167,6 +164,20 @@ export function useCachedFirebaseQuery<T = DocumentData>(
       user?.uid
     );
   }, [options.cacheKey, query, user?.uid]);
+
+  // If query is null, immediately return not loading and empty data (memoized)
+  const emptyResult = useMemo(() => ({
+    data: [],
+    loading: false,
+    error: null,
+    isStale: false,
+    refetch: () => {},
+    invalidateCache: () => {},
+  }), []);
+
+  if (!query) {
+    return emptyResult;
+  }
 
   return {
     data, 

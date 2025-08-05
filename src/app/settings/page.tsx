@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
@@ -11,12 +11,12 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
-import { db, getDb } from "@/lib/firebase";
+import { getDb } from "@/lib/firebase";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const db = getDb();
+  const [db, setDb] = useState<any>(null);
 
   // User profile states
   const [displayName, setDisplayName] = useState("");
@@ -34,6 +34,10 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeSection, setActiveSection] = useState("profile");
   const [message, setMessage] = useState({ type: "", text: "" });
+
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -274,11 +278,7 @@ export default function SettingsPage() {
   }
 
   if (!db) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div>Database not available</div>
-      </div>
-    );
+    return <p>Loading settings…</p>;
   }
 
   return (

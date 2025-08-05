@@ -51,7 +51,7 @@ const PhotoImage: React.FC<PhotoImageProps> = ({
   }
 
   return (
-    <div className="relative">
+    <>
       <Image 
         src={src}
         alt={alt}
@@ -79,7 +79,7 @@ const PhotoImage: React.FC<PhotoImageProps> = ({
       {isLoading && (
         <div className={`absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse ${fill ? '' : `w-[${width}px] h-[${height}px]`}`} />
       )}
-    </div>
+    </>
   );
 };
 

@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import ClientOnly from "@/components/ClientOnly";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext"; 
+import ConditionalNavbar from "@/components/ConditionalNavbar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -76,6 +77,7 @@ export default function RootLayout({
           <ThemeProvider>
             {" "}
             <AuthProvider>
+              <ConditionalNavbar />
               {children}
               <Toaster
                 position="top-right"

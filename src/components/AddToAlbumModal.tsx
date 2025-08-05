@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   collection,
-  getDocs,
   query,
   orderBy,
   doc,
@@ -18,8 +17,6 @@ import { Photo, Album } from "@/types";
 import LoadingSpinner from "./LoadingSpinner";
 import SafeImage from "./SafeImage";
 import { toast } from "react-hot-toast";
-
-// CACHING IMPORTS
 import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
@@ -38,18 +35,28 @@ export default function AddToAlbumModal({
   onSuccess,
 }: AddToAlbumModalProps) {
   const { user } = useAuth();
-  const db = getDb();
 
-  const [selectedAlbum, setSelectedAlbum] = useState<string>("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Initialize `db` only on the client, inside useEffect
+  const [db, setDb] = useState<ReturnType<typeof getDb> | null>(null);
+  useEffect(() => {
+    try {
+      setDb(getDb());
+    } catch (e) {
+      console.error("Failed to init Firestore:", e);
+    }
+  }, []);
 
-  // New album creation states
-  const [showCreateAlbum, setShowCreateAlbum] = useState(false);
-  const [newAlbumTitle, setNewAlbumTitle] = useState("");
-  const [newAlbumDescription, setNewAlbumDescription] = useState("");
-  const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
+  // Early returns
+  if (!isOpen) return null;
+  if (!db) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <LoadingSpinner message="Loading database…" />
+      </div>
+    );
+  }
 
-  // CACHED ALBUMS QUERY
+  // Now that `db` is ready, you can build your query
   const albumsQuery = query(
     collection(db, "albums"),
     orderBy("updatedAt", "desc")
@@ -67,6 +74,15 @@ export default function AddToAlbumModal({
     enableRealtime: true,
     staleWhileRevalidate: true,
   });
+
+  const [selectedAlbum, setSelectedAlbum] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // New album creation states
+  const [showCreateAlbum, setShowCreateAlbum] = useState(false);
+  const [newAlbumTitle, setNewAlbumTitle] = useState("");
+  const [newAlbumDescription, setNewAlbumDescription] = useState("");
+  const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
 
   // Filter albums that don't already contain this photo
   const availableAlbums =
