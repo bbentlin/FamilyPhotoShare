@@ -349,7 +349,7 @@ export default function NewAlbumPage() {
                     {photos.map((photo) => (
                       <div
                         key={photo.id}
-                        className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                        className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
                           selectedCoverPhoto === photo.url
                             ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
                             : "border-transparent hover:border-gray-300 dark:hover:border-gray-500"

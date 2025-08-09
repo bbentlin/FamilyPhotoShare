@@ -28,6 +28,7 @@ import PhotoImage from "@/components/PhotoImage";
 import VirtualPhotoGrid from "@/components/VirtualPhotoGrid";
 import VirtualPhotoItem from "@/components/VirtualPhotoItem";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+import ImageDebugger from "@/components/ImageDebugger";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
@@ -139,7 +140,7 @@ const SortablePhoto = React.memo(
         ref={setNodeRef}
         style={style}
         {...attributes}
-        className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
+        className={`group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
           isDragging ? "opacity-50 z-50" : ""
         }`}
       >
@@ -160,6 +161,7 @@ const SortablePhoto = React.memo(
           }}
         >
           {photo.url ? (
+            <ImageDebugger src={photo.url} />
             <PhotoImage
               src={photo.url}
               alt={photo.title || "Photo"}

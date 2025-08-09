@@ -4,42 +4,65 @@ import Image from "next/image";
 interface PhotoImageProps {
   src: string;
   alt: string;
-  className: string;
+  className?: string;
   width?: number;
   height?: number;
   priority?: boolean;
   sizes?: string;
   fill?: boolean;
+  unoptimized?: boolean;
 }
 
 const PhotoImage: React.FC<PhotoImageProps> = ({
   src,
   alt,
-  className = '',
+  className = "",
   width = 300,
   height = 300,
   priority = false,
-  sizes = '(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw',
-  fill = false
+  sizes = "(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw",
+  fill = false,
+  unoptimized = false,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Generate a simple blur placeholder
   const generateBlurDataURL = () => {
-    return 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyb55A3dqWOh9NLJaJxNWgmGjAkjf8AoaBEoJZYFQyiL7T0rSwgzO5TTYY8bJCm2oUQXYNLT0oOFNrM0cQN3NcMTAFE9LTfnJnr9U/5K7xQN6FdO2t9BvOPV6Y7gNv4KiPwZGYhqOz/2Q==';
+    return "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyb55A3dqWOh9NLJaJxNWgmGjAkjf8AoaBEoJZYFQyiL7T0rSwgzO5TTYY8bJCm2oUQXYNLT0oOFNrM0cQN3NcMTAFE9LTfnJnr9U/5K7xQN6FdO2t9BvOPV6Y7gNv4KiPwZGYhqOz/2Q==";
+  };
+
+  const handleLoad = () => {
+    setIsLoading(false);
+    setHasError(false);
+  };
+
+  const handleError = () => {
+    console.error(`[PhotoImage] Failed to load image: ${src}`);
+    setIsLoading(false);
+
+    // Retry once with unoptimized
+    if (retryCount === 0 && !unoptimized) {
+      setRetryCount(1);
+      return;
+    }
+
+    setHasError(true);
   };
 
   if (hasError) {
     return (
-      <div className={`bg-gray-200 dark:bg-gray-600 flex items-center justify-center ${className}`}>
+      <div
+        className={`bg-gray-200 dark:bg-gray-600 flex items-center justify-center ${className}`}
+      >
         <svg
           className="h-8 w-8 text-gray-400 dark:text-gray-300"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path 
+          <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
@@ -52,7 +75,8 @@ const PhotoImage: React.FC<PhotoImageProps> = ({
 
   return (
     <>
-      <Image 
+      <Image
+        key={`${src}-${retryCount}`} // Force re-render on retry
         src={src}
         alt={alt}
         width={fill ? undefined : width}
@@ -60,24 +84,24 @@ const PhotoImage: React.FC<PhotoImageProps> = ({
         fill={fill}
         priority={priority}
         sizes={sizes}
+        unoptimized={unoptimized || retryCount > 0} // Use unoptimized on retry
         className={`transition-opacity duration-300 ${
-          isLoading ? 'opacity-0' : 'opacity-100'  
+          isLoading ? "opacity-0" : "opacity-100"
         } ${className}`}
         placeholder="blur"
         blurDataURL={generateBlurDataURL()}
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          setIsLoading(false);
-          setHasError(true);
-        }}
+        onLoad={handleLoad}
+        onError={handleError}
         style={{
-          objectFit: 'cover',
+          objectFit: "cover",
         }}
       />
 
       {/* Loading skeleton */}
       {isLoading && (
-        <div className={`absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse ${fill ? '' : `w-[${width}px] h-[${height}px]`}`} />
+        <div
+          className={`absolute inset-0 bg-gray-200 dark:bg-gray-700 animate-pulse`}
+        />
       )}
     </>
   );

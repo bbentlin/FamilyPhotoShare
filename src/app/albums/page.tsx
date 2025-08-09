@@ -193,7 +193,7 @@ export default function AlbumsPage() {
               >
                 {/* Album Cover */}
                 <Link href={`/albums/${album.id}`}>
-                  <div className="aspect-square bg-gray-100 dark:bg-gray-700 relative">
+                  <div className="aspect-square min-h-[200px] bg-gray-100 dark:bg-gray-700 relative">
                     {album.coverPhoto ? (
                       <PhotoImage
                         src={album.coverPhoto}

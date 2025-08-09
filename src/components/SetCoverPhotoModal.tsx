@@ -121,7 +121,7 @@ export default function SetCoverPhotoModal({
               {photos.map((photo) => (
                 <div
                   key={photo.id}
-                  className={`group relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                  className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
                     selectedPhoto === photo.url
                       ? "border-blue-500 ring-2 ring-blue-200"
                       : "border-transparent hover:border-gray-300"

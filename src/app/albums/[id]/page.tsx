@@ -320,7 +320,7 @@ export default function AlbumPage() {
             {photos.map((photo, index) => (
               <div
                 key={photo.id}
-                className="group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
+                className="group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
                 onClick={() => openPhotoModal(photo, index)}
               >
                 <PhotoImage

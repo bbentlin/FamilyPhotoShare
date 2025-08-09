@@ -30,7 +30,7 @@ const VirtualPhotoItem: React.FC<VirtualPhotoItemProps> = React.memo(({
   }, [onAddToAlbum]);
 
   return (
-    <div className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer ${className}`}>
+    <div className={`group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer ${className}`}>
       {/* Photo container */}
       <div
         className="absolute inset-0"

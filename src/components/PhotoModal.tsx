@@ -169,7 +169,7 @@ export default function PhotoModal({
         <div className="flex flex-col w-full h-full">
           {/* Image area takes full height when no comments, otherwise 75% */}
           <div
-            className={`relative flex items-center justify-center transition-all duration-300 w-full ${
+            className={`relative flex items-center justify-center transition-all duration-300 w-full min-h-[400px] ${
               showComments ? "h-3/4" : "h-full"
             }`}
           >

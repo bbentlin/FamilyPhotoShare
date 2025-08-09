@@ -132,7 +132,7 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
+      className={`group relative aspect-square min-height-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
         isDragging ? "opacity-50 z-50" : ""
       }`}
     >
