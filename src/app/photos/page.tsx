@@ -161,14 +161,16 @@ const SortablePhoto = React.memo(
           }}
         >
           {photo.url ? (
-            <ImageDebugger src={photo.url} />
-            <PhotoImage
-              src={photo.url}
-              alt={photo.title || "Photo"}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-              fill={true}
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            <>
+              <ImageDebugger src={photo.url} />
+              <PhotoImage
+                src={photo.url}
+                alt={photo.title || "Photo"}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                fill={true}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
+            </>
           ) : (
             <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
               <svg
