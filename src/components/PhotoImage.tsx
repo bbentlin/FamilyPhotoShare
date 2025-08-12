@@ -19,7 +19,7 @@ function isEdgeUA() {
   return /Edg\//.test(navigator.userAgent);
 }
 
-export default function PhotoImage(props: Props) {ok 
+export default function PhotoImage(props: Props) { 
   const { src, alt, className, fill, sizes, priority, width, height } = props;
   // 0 = normal optimized, 1 = unoptimized, 2 = native <img>
   const [attempt, setAttempt] = useState<0 | 1 | 2>(0);
