@@ -59,10 +59,12 @@ const SortablePhoto = React.memo(
     photo,
     onClick,
     onAddToAlbum,
+    priority = false,
   }: {
     photo: Photo;
     onClick: () => void;
     onAddToAlbum: () => void;
+    priority?: boolean;
   }) {
     const {
       attributes,
@@ -161,19 +163,14 @@ const SortablePhoto = React.memo(
           }}
         >
           {photo.url ? (
-            <>
-              {/* Guard the debugger so it doesn't run in production */}
-              {/* {process.env.NEXT_PUBLIC_DEBUG_IMAGES === "1" && (
-                <ImageDebugger src={photo.url} />
-              )} */}
-              <PhotoImage
-                src={photo.url}
-                alt={photo.title || "Photo"}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                fill={true}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              />
-            </>
+            <PhotoImage
+              src={photo.url}
+              alt={photo.title || "Photo"}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+              fill={true}
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              priority={priority} // <-- here
+            />
           ) : (
             <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
               <svg
@@ -579,6 +576,7 @@ export default function PhotosPage() {
                             photo={photo}
                             onClick={() => openPhotoModal(photo, index)}
                             onAddToAlbum={() => openAddToAlbumModal(photo)}
+                            priority={index < 6} // <-- first row eager
                           />
                         </div>
                       ))}

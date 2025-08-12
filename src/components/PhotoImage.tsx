@@ -9,7 +9,9 @@ type Props = {
   className?: string;
   fill?: boolean;
   sizes?: string;
-  priority?: boolean;
+  priority?: boolean; // <-- ensure prop exists
+  width?: number;
+  height?: number;
 };
 
 function isEdgeUA() {
@@ -17,14 +19,8 @@ function isEdgeUA() {
   return /Edg\//.test(navigator.userAgent);
 }
 
-export default function PhotoImage({
-  src,
-  alt,
-  className = "",
-  fill = false,
-  sizes = "100vw",
-  priority = false,
-}: Props) {
+export default function PhotoImage(props: Props) {ok 
+  const { src, alt, className, fill, sizes, priority, width, height } = props;
   // 0 = normal optimized, 1 = unoptimized, 2 = native <img>
   const [attempt, setAttempt] = useState<0 | 1 | 2>(0);
 
@@ -48,14 +44,15 @@ export default function PhotoImage({
 
   return (
     <NextImage
-      key={`${src}-${attempt}`}
       src={src}
       alt={alt}
+      className={`object-cover ${className ?? ""}`}
       fill={fill}
       sizes={sizes}
-      priority={priority}
+      priority={priority} // <-- forward to Next/Image
+      width={fill ? undefined : width}
+      height={fill ? undefined : height}
       unoptimized={attempt === 1}
-      className={`object-cover ${className}`}
       placeholder="empty"
       onError={() => setAttempt((a) => (a === 0 ? 1 : 2))}
     />

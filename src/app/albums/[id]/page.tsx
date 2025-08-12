@@ -320,25 +320,16 @@ export default function AlbumPage() {
             {photos.map((photo, index) => (
               <div
                 key={photo.id}
-                className="group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 cursor-pointer"
-                onClick={() => openPhotoModal(photo, index)}
+                className="relative aspect-square min-h-[200px] overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700"
               >
                 <PhotoImage
                   src={photo.url}
                   alt={photo.title || "Photo"}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                  fill={true}
+                  className="w-full h-full object-cover"
+                  fill
                   sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                  priority={index < 6} // <-- first row eager
                 />
-
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
-
-                {/* Photo info overlay */}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-sm font-medium truncate">
-                    {photo.title || "Untitled Photo"}
-                  </p>
-                </div>
               </div>
             ))}
           </div>

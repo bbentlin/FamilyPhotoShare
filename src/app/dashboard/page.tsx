@@ -51,7 +51,12 @@ const ModalLoadingSpinner = () => (
   </div>
 );
 
-function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
+function SortablePhoto({
+  photo,
+  onClick,
+  onAddToAlbum,
+  priority = false,
+}: any) {
   const {
     attributes,
     listeners,
@@ -132,11 +137,10 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className={`group relative aspect-square min-height-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
+      className={`group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
         isDragging ? "opacity-50 z-50" : ""
       }`}
     >
-      {/* Main photo container - only handles taps, not drags */}
       <div
         className="absolute inset-0 cursor-pointer"
         style={{
@@ -160,6 +164,7 @@ function SortablePhoto({ photo, onClick, onAddToAlbum }: any) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
             fill={true}
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+            priority={priority} // <-- make above-the-fold eager
           />
         ) : (
           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer">
@@ -568,6 +573,7 @@ export default function DashboardPage() {
                           photo={photo}
                           onClick={() => openPhotoModal(photo, index)}
                           onAddToAlbum={() => openAddToAlbumModal(photo)}
+                          priority={index < 6} // <-- first 6 tiles eager
                         />
                       ))}
                     </div>
@@ -625,7 +631,7 @@ export default function DashboardPage() {
 
               {albums.length > 0 ? (
                 <div className="space-y-3">
-                  {albums.slice(0, 3).map((album) => (
+                  {albums.slice(0, 3).map((album, i) => (
                     <Link
                       key={album.id}
                       href={`/albums/${album.id}`}
@@ -640,6 +646,7 @@ export default function DashboardPage() {
                             width={48}
                             height={48}
                             sizes="48px"
+                            priority={true} // <-- eager (tiny, above the fold)
                           />
                         ) : (
                           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">

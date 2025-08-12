@@ -186,46 +186,23 @@ export default function AlbumsPage() {
 
         {albums.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {albums.map((album) => (
+            {albums.map((album, index) => (
               <div
                 key={album.id}
-                className="group bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-all duration-200 relative"
+                className="rounded-xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
               >
-                {/* Album Cover */}
-                <Link href={`/albums/${album.id}`}>
-                  <div className="aspect-square min-h-[200px] bg-gray-100 dark:bg-gray-700 relative">
-                    {album.coverPhoto ? (
-                      <PhotoImage
-                        src={album.coverPhoto}
-                        alt={album.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        fill={true}
-                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg
-                          className="h-16 w-16 text-gray-400 dark:text-gray-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                          />
-                        </svg>
-                      </div>
-                    )}
-
-                    {/* Photo count overlay */}
-                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs">
-                      {album.photoCount || 0} photos
-                    </div>
-                  </div>
-                </Link>
+                <div className="relative aspect-square min-h-[200px] bg-gray-100 dark:bg-gray-700">
+                  {album.coverPhoto && (
+                    <PhotoImage
+                      src={album.coverPhoto}
+                      alt={album.title}
+                      className="w-full h-full object-cover"
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                      priority={index < 6} // <-- first row of cards eager
+                    />
+                  )}
+                </div>
 
                 {/* Album Info */}
                 <div className="p-4">
