@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  lazy,
-  Suspense,
-} from "react";
+import { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { collection, query, orderBy, limit, where } from "firebase/firestore";
+import { collection, query, orderBy, limit } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import {
   DndContext,
@@ -33,12 +26,10 @@ import { Photo, Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import PhotoImage from "@/components/PhotoImage";
 
-// CACHING IMPORTS
 import { useCachedAlbums } from "@/hooks/useCachedAlbums";
 import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 
-// Lazy load modals
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
 
@@ -51,12 +42,19 @@ const ModalLoadingSpinner = () => (
   </div>
 );
 
+interface SortablePhotoProps {
+  photo: Photo;
+  onClick: () => void;
+  onAddToAlbum?: () => void;
+  priority?: boolean;
+}
+
 function SortablePhoto({
   photo,
   onClick,
   onAddToAlbum,
   priority = false,
-}: any) {
+}: SortablePhotoProps) {
   const {
     attributes,
     listeners,
@@ -78,18 +76,13 @@ function SortablePhoto({
       e.stopPropagation();
       return;
     }
-
-    const touchStartTime = Date.now();
     const startX = e.touches[0].clientX;
     const startY = e.touches[0].clientY;
 
     const handleTouchMove = (moveEvent: TouchEvent) => {
       const moveX = moveEvent.touches[0].clientX;
       const moveY = moveEvent.touches[0].clientY;
-      const distance = Math.sqrt(
-        Math.pow(moveX - startX, 2) + Math.pow(moveY - startY, 2)
-      );
-
+      const distance = Math.hypot(moveX - startX, moveY - startY);
       if (distance > 10) {
         setIsDragOperation(true);
         document.removeEventListener("touchmove", handleTouchMove);
@@ -108,13 +101,11 @@ function SortablePhoto({
 
   const handleContainerTouchEnd = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
-
     if (isDragging || isDragOperation || target.closest("button")) {
       e.preventDefault();
       e.stopPropagation();
       return;
     }
-
     e.preventDefault();
     e.stopPropagation();
     setTimeout(() => onClick(), 10);
@@ -126,7 +117,6 @@ function SortablePhoto({
       e.stopPropagation();
       return;
     }
-
     e.preventDefault();
     e.stopPropagation();
     onClick();
@@ -142,49 +132,30 @@ function SortablePhoto({
       }`}
     >
       <div
-        className="absolute inset-0 cursor-pointer"
-        style={{
-          touchAction: isDragging ? "none" : "manipulation",
-          WebkitTouchCallout: "none",
-          WebkitUserSelect: "none",
-          userSelect: "none",
-          WebkitTapHighlightColor: "transparent",
-          pointerEvents: isDragging ? "none" : "auto",
-          height: "100%",
-          width: "100%",
-        }}
+        className="relative w-full h-full cursor-pointer"
         onClick={handleClick}
         onTouchStart={handleContainerTouchStart}
         onTouchEnd={handleContainerTouchEnd}
+        style={{
+          touchAction: isDragging ? "none" : "manipulation",
+          pointerEvents: isDragging ? "none" : "auto",
+          WebkitUserSelect: "none",
+          userSelect: "none",
+        }}
       >
         {photo.url ? (
           <PhotoImage
             src={photo.url}
             alt={photo.title || "Photo"}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-            fill={true}
+            fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-            priority={priority} // <-- make above-the-fold eager
+            priority={priority}
           />
         ) : (
-          <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center cursor-pointer">
-            <svg
-              className="h-8 w-8 text-gray-400 dark:text-gray-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
+          <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center" />
         )}
-
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
+        <div className="pointer-events-none absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
 
         <div className="absolute bottom-2 left-2 right-2 pointer-events-none">
           <p className="text-white text-sm font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
@@ -192,10 +163,10 @@ function SortablePhoto({
           </p>
         </div>
 
-        {/* Add to album button */}
         {onAddToAlbum && (
           <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -204,10 +175,11 @@ function SortablePhoto({
               className="bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-1.5 rounded-md transition-all"
               style={{
                 touchAction: "manipulation",
-                minHeight: "44px",
-                minWidth: "44px",
+                minHeight: 44,
+                minWidth: 44,
               }}
               title="Add to Album"
+              aria-label="Add to album"
             >
               <svg
                 className="h-4 w-4"
@@ -226,16 +198,15 @@ function SortablePhoto({
           </div>
         )}
 
-        {/* Separate drag handle - only this area is draggable */}
         <div
           {...listeners}
           className="absolute top-2 right-2 opacity-60 group-hover:opacity-100 transition-opacity cursor-move z-10 p-1"
           style={{
-            touchAction: "none", // Allow dragging
-            background: "rgba(0, 0, 0, 0.7)",
-            borderRadius: "6px",
-            minHeight: "44px",
-            minWidth: "44px",
+            touchAction: "none",
+            background: "rgba(0,0,0,0.7)",
+            borderRadius: 6,
+            minHeight: 44,
+            minWidth: 44,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -245,6 +216,8 @@ function SortablePhoto({
             setIsDragOperation(true);
             e.stopPropagation();
           }}
+          aria-label="Drag handle"
+          role="button"
         >
           <svg
             className="h-4 w-4 text-white"
@@ -268,12 +241,6 @@ function SortablePhoto({
 export default function DashboardPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-
-  const [db, setDb] = useState<any>(null);
-
-  useEffect(() => {
-    setDb(getDb());
-  }, []);
 
   const recentPhotosQuery = useMemo(() => {
     if (!user) return null;
@@ -301,74 +268,48 @@ export default function DashboardPage() {
     isStale: albumsStale,
   } = useCachedAlbums(true);
 
-  // For now, keep family members as is until we create the proper structure
-  const [familyMembers, setFamilyMembers] = useState<
-    Array<{ id: string; [key: string]: any }>
-  >([]);
+  const [familyMembers] = useState<Array<{ id: string; [key: string]: any }>>(
+    []
+  );
 
-  // Local state for photos (for drag and drop)
   const [photos, setPhotos] = useState<Photo[]>([]);
-
   useEffect(() => {
     setPhotos(recentPhotosData || []);
   }, [recentPhotosData]);
 
-  // Modal state
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
 
-  // Sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
-  // Combined loading state
   const isLoading = loading || photosLoading || albumsLoading;
 
-  // Debug logs (optional)
-  console.log("user", user);
-  console.log(
-    "photosLoading",
-    photosLoading,
-    "recentPhotosData",
-    recentPhotosData
-  );
-  console.log("albumsLoading", albumsLoading, "albums", albums);
-
-  // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
 
-  // Handle drag end
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
-    if (active.id !== over.id) {
-      const oldIndex = photos.findIndex((photo) => photo.id === active.id);
-      const newIndex = photos.findIndex((photo) => photo.id === over.id);
-      const newPhotos = arrayMove(photos, oldIndex, newIndex);
-      setPhotos(newPhotos);
-    }
+    if (!over || active.id === over.id) return;
+    const oldIndex = photos.findIndex((p) => p.id === active.id);
+    const newIndex = photos.findIndex((p) => p.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setPhotos(arrayMove(photos, oldIndex, newIndex));
   };
 
-  // Modal functions
   const openPhotoModal = (photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
   };
-
-  const closePhotoModal = () => {
-    setSelectedPhoto(null);
-  };
-
+  const closePhotoModal = () => setSelectedPhoto(null);
   const goToPreviousPhoto = () => {
     if (selectedPhotoIndex > 0) {
       const newIndex = selectedPhotoIndex - 1;
@@ -376,7 +317,6 @@ export default function DashboardPage() {
       setSelectedPhoto(photos[newIndex]);
     }
   };
-
   const goToNextPhoto = () => {
     if (selectedPhotoIndex < photos.length - 1) {
       const newIndex = selectedPhotoIndex + 1;
@@ -384,20 +324,15 @@ export default function DashboardPage() {
       setSelectedPhoto(photos[newIndex]);
     }
   };
-
   const openAddToAlbumModal = (photo: Photo) => {
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
   };
-
   const closeAddToAlbumModal = () => {
     setShowAddToAlbumModal(false);
     setSelectedPhotoForAlbum(null);
   };
-
-  const handleAlbumSuccess = () => {
-    closeAddToAlbumModal();
-  };
+  const handleAlbumSuccess = () => closeAddToAlbumModal();
 
   if (isLoading) {
     return (

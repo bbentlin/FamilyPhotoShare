@@ -148,7 +148,7 @@ const SortablePhoto = React.memo(
       >
         {/* Photo container */}
         <div
-          className="absolute inset-0 cursor-pointer"
+          className="relative w-full h-full cursor-pointer"
           onClick={handleClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -158,8 +158,6 @@ const SortablePhoto = React.memo(
             WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
             userSelect: "none",
-            height: "100%",
-            width: "100%",
           }}
         >
           {photo.url ? (
@@ -169,7 +167,7 @@ const SortablePhoto = React.memo(
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
               fill={true}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              priority={priority} // <-- here
+              priority={priority}
             />
           ) : (
             <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
