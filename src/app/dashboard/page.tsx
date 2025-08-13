@@ -125,9 +125,9 @@ function SortablePhoto({
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, width: "100%", height: "100%" }}
       {...attributes}
-      className={`group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
+      className={`group relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 ${
         isDragging ? "opacity-50 z-50" : ""
       }`}
     >
@@ -503,7 +503,10 @@ export default function DashboardPage() {
                   >
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {photos.map((photo, index) => (
-                        <div key={photo.id} className="aspect-square w-full">
+                        <div
+                          key={photo.id}
+                          className="relative aspect-square w-full h-full"
+                        >
                           <SortablePhoto
                             photo={photo}
                             onClick={() => openPhotoModal(photo, index)}
