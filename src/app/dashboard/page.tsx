@@ -503,13 +503,14 @@ export default function DashboardPage() {
                   >
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {photos.map((photo, index) => (
-                        <SortablePhoto
-                          key={photo.id}
-                          photo={photo}
-                          onClick={() => openPhotoModal(photo, index)}
-                          onAddToAlbum={() => openAddToAlbumModal(photo)}
-                          priority={index < 6} // <-- first 6 tiles eager
-                        />
+                        <div key={photo.id} className="aspect-square w-full">
+                          <SortablePhoto
+                            photo={photo}
+                            onClick={() => openPhotoModal(photo, index)}
+                            onAddToAlbum={() => openAddToAlbumModal(photo)}
+                            priority={index < 6}
+                          />
+                        </div>
                       ))}
                     </div>
                   </SortableContext>
