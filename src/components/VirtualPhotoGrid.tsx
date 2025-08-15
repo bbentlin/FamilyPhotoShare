@@ -20,6 +20,9 @@ interface VirtualPhotoGridProps {
     photo: Photo;
     onClick: () => void;
     onAddToAlbum: () => void;
+    // New, optional hints:
+    loading?: "eager" | "lazy";
+    priority?: boolean;
   }) => React.ReactNode;
 }
 
@@ -93,12 +96,16 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
         return <div style={style} />;
       }
 
+      const isAboveTheFold = rowIndex <= 2;
+
       return (
         <div style={style} className="p-2">
           {renderPhoto({
             photo,
             onClick: () => onPhotoClick(photo, photoIndex),
             onAddToAlbum: () => onAddToAlbum(photo),
+            loading: "eager", // <-- critical for Edge in scroll containers
+            priority: isAboveTheFold, // boost first few rows
           })}
         </div>
       );
@@ -139,6 +146,8 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
             rowCount={rowCount}
             rowHeight={itemSize + gap}
             width={containerSize.width}
+            overscanRowCount={2}
+            overscanColumnCount={1}
             onItemsRendered={({
               visibleRowStartIndex,
               visibleRowStopIndex,

@@ -9,9 +9,10 @@ type Props = {
   className?: string;
   fill?: boolean;
   sizes?: string;
-  priority?: boolean; // <-- ensure prop exists
+  priority?: boolean;
   width?: number;
   height?: number;
+  loading?: "eager" | "lazy"; // <-- add
 };
 
 function isEdgeUA() {
@@ -19,25 +20,32 @@ function isEdgeUA() {
   return /Edg\//.test(navigator.userAgent);
 }
 
-export default function PhotoImage(props: Props) { 
-  const { src, alt, className, fill, sizes, priority, width, height } = props;
+export default function PhotoImage(props: Props) {
+  const { src, alt, className, fill, sizes, priority, width, height, loading } =
+    props;
   // 0 = normal optimized, 1 = unoptimized, 2 = native <img>
   const [attempt, setAttempt] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
-    // Start unoptimized on Edge to bypass its optimization issues
+    // Prefer unoptimized on Edge to avoid IO/Lazy quirks
     setAttempt(isEdgeUA() ? 1 : 0);
   }, [src]);
+
+  const effectiveLoading: "eager" | "lazy" | undefined =
+    loading ?? (isEdgeUA() ? "eager" : undefined); // default eager on Edge
+  const effectiveFetchPriority =
+    priority || effectiveLoading === "eager" ? "high" : "auto";
 
   if (attempt === 2) {
     return (
       <img
         src={src}
         alt={alt}
-        className={`object-cover ${className}`}
+        className={`object-cover ${className ?? ""}`}
         style={{ width: "100%", height: "100%", display: "block" }}
         crossOrigin="anonymous"
-        loading="lazy"
+        loading={effectiveLoading ?? "eager"} // <-- don't use lazy in fallback
+        decoding="async"
       />
     );
   }
@@ -49,11 +57,14 @@ export default function PhotoImage(props: Props) {
       className={`object-cover ${className ?? ""}`}
       fill={fill}
       sizes={sizes}
-      priority={priority} // <-- forward to Next/Image
+      priority={!!priority}
       width={fill ? undefined : width}
       height={fill ? undefined : height}
       unoptimized={attempt === 1}
       placeholder="empty"
+      loading={effectiveLoading} // <-- ensure eager when needed
+      fetchPriority={effectiveFetchPriority} // <-- boost above-the-fold
+      decoding="async"
       onError={() => setAttempt((a) => (a === 0 ? 1 : 2))}
     />
   );
