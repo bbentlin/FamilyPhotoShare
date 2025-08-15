@@ -501,19 +501,16 @@ export default function DashboardPage() {
                     items={photos.map((p) => p.id)}
                     strategy={rectSortingStrategy}
                   >
+                    {/* Recent Photos grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {photos.map((photo, index) => (
-                        <div
+                        <SortablePhoto
                           key={photo.id}
-                          className="relative aspect-square w-full h-full"
-                        >
-                          <SortablePhoto
-                            photo={photo}
-                            onClick={() => openPhotoModal(photo, index)}
-                            onAddToAlbum={() => openAddToAlbumModal(photo)}
-                            priority={index < 6}
-                          />
-                        </div>
+                          photo={photo}
+                          onClick={() => openPhotoModal(photo, index)}
+                          onAddToAlbum={() => openAddToAlbumModal(photo)}
+                          priority={index < 6} // <-- first row eager
+                        />
                       ))}
                     </div>
                   </SortableContext>

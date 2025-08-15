@@ -118,7 +118,7 @@ export default function SetCoverPhotoModal({
 
             {/* Photos Grid */}
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-6">
-              {photos.map((photo) => (
+              {photos.map((photo, i) => (
                 <div
                   key={photo.id}
                   className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
@@ -126,13 +126,12 @@ export default function SetCoverPhotoModal({
                       ? "border-blue-500 ring-2 ring-blue-200"
                       : "border-transparent hover:border-gray-300"
                   }`}
-                  onClick={() => handlePhotoSelect(photo)}
                 >
                   <SafeImage
                     src={photo.url}
                     alt={photo.title || "Photo"}
                     className="w-full h-full object-cover"
-                    loading="lazy"
+                    loading={i < 6 ? "eager" : "lazy"} // <-- eager for first row
                     onClick={() => setSelectedPhoto(photo.url)}
                   />
 

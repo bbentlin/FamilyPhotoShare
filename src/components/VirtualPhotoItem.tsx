@@ -7,10 +7,11 @@ interface VirtualPhotoItemProps {
   onClick: () => void;
   onAddToAlbum: () => void;
   className?: string;
+  priority?: boolean; // <-- add
 }
 
 const VirtualPhotoItem: React.FC<VirtualPhotoItemProps> = React.memo(
-  ({ photo, onClick, onAddToAlbum, className = "" }) => {
+  ({ photo, onClick, onAddToAlbum, className = "", priority }) => {
     const handleClick = useCallback(
       (e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
@@ -42,8 +43,9 @@ const VirtualPhotoItem: React.FC<VirtualPhotoItemProps> = React.memo(
             src={photo.url}
             alt={photo.title || "Photo"}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-            fill={true}
+            fill
             sizes="250px"
+            priority={priority} // <-- forward
           />
         ) : (
           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
