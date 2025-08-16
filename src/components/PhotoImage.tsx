@@ -21,11 +21,15 @@ function isWindowsEdge() {
   return /Edg\//.test(ua) && /Windows NT/.test(ua);
 }
 
+function proxied(src: string) {
+  return `/api/image?u=${encodeURIComponent(src)}`;
+}
+
 export default function PhotoImage(props: Props) {
   const { src, alt, className, fill, sizes, priority, width, height, loading } =
     props;
 
-  // Windows Edge: use native <img>, no CORS flags
+  // Windows Edge: use native <img>, proxied URL
   if (isWindowsEdge()) {
     const style = fill
       ? ({
@@ -43,13 +47,13 @@ export default function PhotoImage(props: Props) {
 
     return (
       <img
-        src={src}
+        src={proxied(src)}
         alt={alt}
         className={`object-cover ${className ?? ""}`}
         style={style}
         decoding="async"
-        // DO NOT set crossOrigin/referrerPolicy here
         fetchPriority={priority ? "high" : "auto"}
+        onError={() => console.error("Edge image failed", { src })}
       />
     );
   }
