@@ -270,6 +270,7 @@ export default function PhotosPage() {
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
+  const [viewMode, setViewMode] = useState<"virtual" | "grid">("grid");
 
   // Custom hook - keep this after state declarations
   const {
