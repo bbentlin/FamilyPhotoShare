@@ -270,7 +270,6 @@ export default function PhotosPage() {
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
-  const [viewMode, setViewMode] = useState<"virtual" | "grid">("grid");
 
   // Custom hook - keep this after state declarations
   const {
@@ -577,15 +576,13 @@ export default function PhotosPage() {
         )}
 
         {/* Add to Album Modal */}
-        {selectedPhotoForAlbum && (
-          <Suspense fallback={<AlbumModalLoadingSpinner />}>
-            <AddToAlbumModal
-              isOpen={showAddToAlbumModal}
-              photo={selectedPhotoForAlbum}
-              onClose={closeAddToAlbumModal}
-              onSuccess={handleAlbumSuccess}
-            />
-          </Suspense>
+        {showAddToAlbumModal && selectedPhotoForAlbum && (
+          <AddToAlbumModal
+            isOpen={true}
+            photo={selectedPhotoForAlbum}
+            onClose={closeAddToAlbumModal}
+            onSuccess={closeAddToAlbumModal}
+          />
         )}
       </div>
     </>
