@@ -270,6 +270,18 @@ export default function PhotosPage() {
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
+  const [viewMode, setViewMode] = useState<"virtual" | "grid">("virtual"); // <-- add
+
+  // optional: persist view mode across visits
+  useEffect(() => {
+    const saved =
+      typeof window !== "undefined" && localStorage.getItem("viewMode");
+    if (saved === "virtual" || saved === "grid") setViewMode(saved);
+  }, []);
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      localStorage.setItem("viewMode", viewMode);
+  }, [viewMode]);
 
   // Custom hook - keep this after state declarations
   const {

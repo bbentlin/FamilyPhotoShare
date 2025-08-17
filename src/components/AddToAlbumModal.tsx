@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   collection,
   query,
@@ -48,7 +48,6 @@ export default function AddToAlbumModal(props: AddToAlbumModalProps) {
   // Only mount UI when open
   if (!isOpen) return null;
 
-  // Shell stays mounted and blocks scroll; content mounts when db is ready
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -75,6 +74,7 @@ export default function AddToAlbumModal(props: AddToAlbumModalProps) {
             user={user}
             onClose={onClose}
             onSuccess={onSuccess}
+            isOpen={isOpen} // <-- pass through
           />
         )}
       </div>
@@ -82,19 +82,21 @@ export default function AddToAlbumModal(props: AddToAlbumModalProps) {
   );
 }
 
-// Separate child: hooks run only after db exists, avoiding conditional hooks in parent
+// Separate child: hooks run only after db exists
 function AddToAlbumModalContent({
   db,
   photo,
   user,
   onClose,
   onSuccess,
+  isOpen, // <-- receive it here
 }: {
   db: ReturnType<typeof getDb>;
   photo: Photo;
   user: User | null | undefined;
   onClose: () => void;
   onSuccess?: () => void;
+  isOpen: boolean; // <-- type
 }) {
   // Build query once db is present
   const albumsQuery = useMemo(
@@ -125,7 +127,7 @@ function AddToAlbumModalContent({
   const availableAlbums =
     allAlbums?.filter((album) => !photo.albums?.includes(album.id)) || [];
 
-  // Reset state when modal opens/closes
+  // Reset internal state when modal opens
   useEffect(() => {
     if (isOpen) {
       setSelectedAlbum("");
