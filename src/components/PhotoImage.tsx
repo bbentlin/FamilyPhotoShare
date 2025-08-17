@@ -15,10 +15,26 @@ type Props = {
   loading?: "eager" | "lazy";
 };
 
+const PROXY_ENABLED = 
+  typeof process !== "undefined" && 
+  process.ennv.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
+
 function isWindowsEdge() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;
   return /Edg\//.test(ua) && /Windows NT/.test(ua);
+}
+
+function isFirebaseStorageUrl(u: string) {
+  try {
+    const url = new URL(u, typeof window !== "undefined" ? window.location.href : "http://localhost");
+    return (
+      url.hostname.endsWith("firebasestorage.googleapis.com") ||
+      url.hostname.endsWith("storage.googleapis.com")
+    );
+  } catch {
+    return false;
+  }
 }
 
 function proxied(src: string) {
@@ -29,7 +45,9 @@ export default function PhotoImage(props: Props) {
   const { src, alt, className, fill, sizes, priority, width, height, loading } =
     props;
 
-  // Windows Edge: use native <img>, proxied URL
+  const useProxy = isWindowsEdge() && PROXY_ENABLED && isFirebaseStorageUrl(src);
+
+  // Windows Edge: use native <img>, optionally proxied URL, eager load
   if (isWindowsEdge()) {
     const style = fill
       ? ({
@@ -38,22 +56,29 @@ export default function PhotoImage(props: Props) {
           width: "100%",
           height: "100%",
           display: "block",
-        } as const)
+        } as const);
       : ({
           width: width ?? "100%",
           height: height ?? "100%",
           display: "block",
-        } as const);
+      } as const);
 
     return (
-      <img
-        src={proxied(src)}
+      <img 
+        src={useProxy ? proxied(src) : src}
         alt={alt}
         className={`object-cover ${className ?? ""}`}
         style={style}
+        loading={loading ?? "eager"}
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
-        onError={() => console.error("Edge image failed", { src })}
+        onError={(e) => {
+          console.error("Edge image failed", {
+            src,
+            usedProxy: useProxy,
+            currentSrc: (e.target as HTMLImageElement).currentSrc,
+          });
+        }}
       />
     );
   }
@@ -72,12 +97,11 @@ export default function PhotoImage(props: Props) {
 
   if (attempt === 2) {
     return (
-      <img
+      <img 
         src={src}
         alt={alt}
         className={`object-cover ${className ?? ""}`}
         style={{ width: "100%", height: "100%", display: "block" }}
-        // DO NOT set crossOrigin/referrerPolicy here
         loading={effectiveLoading ?? "eager"}
         decoding="async"
       />
@@ -85,7 +109,7 @@ export default function PhotoImage(props: Props) {
   }
 
   return (
-    <NextImage
+    <NextImage 
       src={src}
       alt={alt}
       className={`object-cover ${className ?? ""}`}
