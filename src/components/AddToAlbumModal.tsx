@@ -28,12 +28,8 @@ interface AddToAlbumModalProps {
   onSuccess?: () => void;
 }
 
-export default function AddToAlbumModal({
-  photo,
-  isOpen,
-  onClose,
-  onSuccess,
-}: AddToAlbumModalProps) {
+export default function AddToAlbumModal(props: AddToAlbumModalProps) {
+  const { photo, isOpen, onClose, onSuccess } = props;
   const { user } = useAuth();
 
   // Initialize `db` only on the client, inside useEffect

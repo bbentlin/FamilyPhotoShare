@@ -29,9 +29,16 @@ import VirtualPhotoGrid from "@/components/VirtualPhotoGrid";
 import VirtualPhotoItem from "@/components/VirtualPhotoItem";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 import ImageDebugger from "@/components/ImageDebugger";
+import dynamic from "next/dynamic";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
-const AddToAlbumModal = lazy(() => import("@/components/AddToAlbumModal"));
+const AddToAlbumModal = dynamic(
+  () =>
+    import("@/components/AddToAlbumModal").then(
+      (m) => m.default ?? m.AddToAlbumModal // supports default or named export
+    ),
+  { ssr: false, loading: () => <AlbumModalLoadingSpinner /> }
+);
 
 const ModalLoadingSpinner = () => (
   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -398,191 +405,192 @@ export default function PhotosPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              All Photos
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              {photos.length} photos in your collection
-            </p>
-          </div>
-
-          {/* Sort Controls */}
-          <div className="mt-4 sm:mt-0">
-            <select
-              value={sortBy}
-              onChange={(e) => {
-                const newSortBy = e.target.value as
-                  | "newest"
-                  | "oldest"
-                  | "title";
-                setSortBy(newSortBy);
-              }}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="newest">Newest First</option>
-              <option value="oldest">Oldest First</option>
-              <option value="title">By Title</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Photos Grid */}
-        {photos.length > 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                Showing {photos.length} photos
-                {hasMore && " • Loading more..."}
-              </span>
-
-              {/* View Mode Toggle */}
-              <div className="flex items-center gap-4">
-                <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                  <button
-                    onClick={() => setViewMode("virtual")}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      viewMode === "virtual"
-                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                        : "text-gray-600 dark:text-gray-300"
-                    }`}
-                  >
-                    Virtual
-                  </button>
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`px-3 py-1 rounded text-sm transition-colors ${
-                      viewMode === "grid"
-                        ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
-                        : "text-gray-600 dark:text-gray-300"
-                    }`}
-                  >
-                    Standard
-                  </button>
-                </div>
-
-                <Link
-                  href="/albums/new"
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                >
-                  Create Album from Photos →
-                </Link>
-              </div>
+    <>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                All Photos
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {photos.length} photos in your collection
+              </p>
             </div>
 
-            {viewMode === "virtual" ? (
-              // Virtual Scrolling Grid
-              <VirtualPhotoGrid
-                photos={photos}
-                hasMore={hasMore}
-                loading={photosLoading}
-                onLoadMore={loadMore}
-                onPhotoClick={openPhotoModal}
-                onAddToAlbum={openAddToAlbumModal}
-                renderPhoto={({ photo, onClick, onAddToAlbum }) => (
-                  <VirtualPhotoItem
-                    photo={photo}
-                    onClick={onClick}
-                    onAddToAlbum={onAddToAlbum}
-                  />
-                )}
-              />
-            ) : (
-              // Standard Grid with Drag and Drop
-              <InfiniteScrollGrid
-                hasMore={hasMore}
-                loading={photosLoading}
-                onLoadMore={loadMore}
+            {/* Sort Controls */}
+            <div className="mt-4 sm:mt-0">
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  const newSortBy = e.target.value as
+                    | "newest"
+                    | "oldest"
+                    | "title";
+                  setSortBy(newSortBy);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={photos.map((p) => p.id)}
-                    strategy={rectSortingStrategy}
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">By Title</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Photos Grid */}
+          {photos.length > 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  Showing {photos.length} photos
+                  {hasMore && " • Loading more..."}
+                </span>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-4">
+                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                      onClick={() => setViewMode("virtual")}
+                      className={`px-3 py-1 rounded text-sm transition-colors ${
+                        viewMode === "virtual"
+                          ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                          : "text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      Virtual
+                    </button>
+                    <button
+                      onClick={() => setViewMode("grid")}
+                      className={`px-3 py-1 rounded text-sm transition-colors ${
+                        viewMode === "grid"
+                          ? "bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm"
+                          : "text-gray-600 dark:text-gray-300"
+                      }`}
+                    >
+                      Standard
+                    </button>
+                  </div>
+
+                  <Link
+                    href="/albums/new"
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
                   >
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                      {photos.map((photo, index) => (
-                        <div key={photo.id} className="aspect-square w-full">
-                          <SortablePhoto
-                            key={photo.id}
-                            photo={photo}
-                            onClick={() => openPhotoModal(photo, index)}
-                            onAddToAlbum={() => openAddToAlbumModal(photo)}
-                            priority={index < 6} // <-- first row eager
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </InfiniteScrollGrid>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <svg
-              className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-              No photos yet
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Start building your family photo collection
-            </p>
-            <Link
-              href="/upload"
-              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Upload Your First Photos
-            </Link>
-          </div>
+                    Create Album from Photos →
+                  </Link>
+                </div>
+              </div>
+
+              {viewMode === "virtual" ? (
+                // Virtual Scrolling Grid
+                <VirtualPhotoGrid
+                  photos={photos}
+                  hasMore={hasMore}
+                  loading={photosLoading}
+                  onLoadMore={loadMore}
+                  onPhotoClick={openPhotoModal}
+                  onAddToAlbum={openAddToAlbumModal}
+                  renderPhoto={({ photo, onClick, onAddToAlbum }) => (
+                    <VirtualPhotoItem
+                      photo={photo}
+                      onClick={onClick}
+                      onAddToAlbum={onAddToAlbum}
+                    />
+                  )}
+                />
+              ) : (
+                // Standard Grid with Drag and Drop
+                <InfiniteScrollGrid
+                  hasMore={hasMore}
+                  loading={photosLoading}
+                  onLoadMore={loadMore}
+                >
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={photos.map((p) => p.id)}
+                      strategy={rectSortingStrategy}
+                    >
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                        {photos.map((photo, index) => (
+                          <div key={photo.id} className="aspect-square w-full">
+                            <SortablePhoto
+                              key={photo.id}
+                              photo={photo}
+                              onClick={() => openPhotoModal(photo, index)}
+                              onAddToAlbum={() => openAddToAlbumModal(photo)}
+                              priority={index < 6} // <-- first row eager
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
+                </InfiniteScrollGrid>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <svg
+                className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                No photos yet
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Start building your family photo collection
+              </p>
+              <Link
+                href="/upload"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Upload Your First Photos
+              </Link>
+            </div>
+          )}
+        </main>
+
+        {/* Photo Modal */}
+        {selectedPhoto && (
+          <Suspense fallback={<ModalLoadingSpinner />}>
+            <PhotoModal
+              photo={selectedPhoto}
+              isOpen={true}
+              onClose={closePhotoModal}
+              onPrevious={goToPreviousPhoto}
+              onNext={goToNextPhoto}
+              hasPrevious={selectedPhotoIndex > 0}
+              hasNext={selectedPhotoIndex < photos.length - 1}
+            />
+          </Suspense>
         )}
-      </main>
 
-      {/* Photo Modal */}
-      {selectedPhoto && (
-        <Suspense fallback={<ModalLoadingSpinner />}>
-          <PhotoModal
-            photo={selectedPhoto}
-            isOpen={true}
-            onClose={closePhotoModal}
-            onPrevious={goToPreviousPhoto}
-            onNext={goToNextPhoto}
-            hasPrevious={selectedPhotoIndex > 0}
-            hasNext={selectedPhotoIndex < photos.length - 1}
-          />
-        </Suspense>
-      )}
-
-      {/* Add to Album Modal */}
-      {showAddToAlbumModal && selectedPhotoForAlbum && (
-        <Suspense fallback={<AlbumModalLoadingSpinner />}>
+        {/* Add to Album Modal */}
+        {showAddToAlbumModal && selectedPhotoForAlbum && (
           <AddToAlbumModal
             photo={selectedPhotoForAlbum}
-            isOpen={showAddToAlbumModal}
-            onClose={closeAddToAlbumModal}
-            onSuccess={handleAlbumSuccess}
+            onClose={() => {
+              setShowAddToAlbumModal(false);
+              setSelectedPhotoForAlbum(null);
+            }}
           />
-        </Suspense>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
