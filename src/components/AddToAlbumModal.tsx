@@ -5,6 +5,7 @@ import {
   collection,
   query,
   orderBy,
+  where, // <-- add
   doc,
   updateDoc,
   arrayUnion,
@@ -89,20 +90,24 @@ function AddToAlbumModalContent({
   user,
   onClose,
   onSuccess,
-  isOpen, // <-- receive it here
+  isOpen,
 }: {
   db: ReturnType<typeof getDb>;
   photo: Photo;
   user: User | null | undefined;
   onClose: () => void;
   onSuccess?: () => void;
-  isOpen: boolean; // <-- type
+  isOpen: boolean;
 }) {
   // Build query once db is present
-  const albumsQuery = useMemo(
-    () => query(collection(db, "albums"), orderBy("updatedAt", "desc")),
-    [db]
-  );
+  const albumsQuery = useMemo(() => {
+    if (!user) return null;
+    return query(
+      collection(db, "albums"),
+      where("createdBy", "==", user.uid), // <-- restrict to caller
+      orderBy("updatedAt", "desc")
+    );
+  }, [db, user]);
 
   const {
     data: allAlbums,
