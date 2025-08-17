@@ -17,7 +17,7 @@ type Props = {
 
 const PROXY_ENABLED = 
   typeof process !== "undefined" && 
-  process.ennv.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
+  process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
 
 function isWindowsEdge() {
   if (typeof navigator === "undefined") return false;
