@@ -35,7 +35,7 @@ const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = dynamic(
   () =>
     import("@/components/AddToAlbumModal").then(
-      (m) => m.default ?? m.AddToAlbumModal // supports default or named export
+      (m) => m.default ?? m.AddToAlbumModal
     ),
   { ssr: false, loading: () => <AlbumModalLoadingSpinner /> }
 );
@@ -270,8 +270,6 @@ export default function PhotosPage() {
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "virtual">("virtual");
-  const [useVirtualScrolling, setUseVirtualScrolling] = useState(true);
 
   // Custom hook - keep this after state declarations
   const {
@@ -361,12 +359,9 @@ export default function PhotosPage() {
 
   const handleAlbumSuccess = useCallback(() => {
     closeAddToAlbumModal();
-    // Invalidate cache to refresh data across the app
-    if (user) {
-      CacheInvalidationManager.invalidateForAction("photo-update", user.uid);
-      refresh(); // Use your existing refresh function
-    }
-  }, [closeAddToAlbumModal, user, refresh]);
+    // optional refresh
+    // refresh();
+  }, [closeAddToAlbumModal]);
 
   // ADD MANUAL REFRESH WITH CACHE INVALIDATION
   const handleRefresh = useCallback(() => {
@@ -581,14 +576,15 @@ export default function PhotosPage() {
         )}
 
         {/* Add to Album Modal */}
-        {showAddToAlbumModal && selectedPhotoForAlbum && (
-          <AddToAlbumModal
-            photo={selectedPhotoForAlbum}
-            onClose={() => {
-              setShowAddToAlbumModal(false);
-              setSelectedPhotoForAlbum(null);
-            }}
-          />
+        {selectedPhotoForAlbum && (
+          <Suspense fallback={<AlbumModalLoadingSpinner />}>
+            <AddToAlbumModal
+              isOpen={showAddToAlbumModal}
+              photo={selectedPhotoForAlbum}
+              onClose={closeAddToAlbumModal}
+              onSuccess={handleAlbumSuccess}
+            />
+          </Suspense>
         )}
       </div>
     </>

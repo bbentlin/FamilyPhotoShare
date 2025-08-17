@@ -127,8 +127,11 @@ a:focus-visible {
     position: relative;
     width: 100%;
   }
-  
-  .aspect-square > * {
+
+  /* Only stretch image wrappers, not every child (fixes overlay buttons) */
+  .aspect-square > img,
+  .aspect-square > picture,
+  .aspect-square > span {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
   }
