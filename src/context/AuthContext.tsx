@@ -17,6 +17,8 @@ import {
   GoogleAuthProvider,
   signOut,
   sendPasswordResetEmail,
+  setPersistence,
+  browserSessionPersistence,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -39,6 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // Force session-only auth (clears on browser close)
+    setPersistence(auth, browserSessionPersistence).catch((e) =>
+      console.warn("[Auth] setPersistence failed:", e)
+    );
 
     console.log("🔄 [Auth] initializing…");
     let listenerFired = false;
