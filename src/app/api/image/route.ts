@@ -9,7 +9,7 @@ const ALLOWED_HOSTS = new Set([
   "storage.googleapis.com",
 ]);
 
-export async function GET(reg: NextRequest) {
+export async function GET(req: NextRequest) {
   const u = req.nextUrl.searchParams.get("u");
   if (!u) return new NextResponse("Missing u", { status: 400 });
 
@@ -43,7 +43,7 @@ export async function GET(reg: NextRequest) {
     res.headers.set("cache-control", "public, max-age=3600");
     const etag = upstream.headers.get("etag");
     if (etag) res.headers.set("etag", etag);
-    res.headers.set("x-content-type-options", "nosniff")
+    res.headers.set("x-content-type-options", "nosniff");
     res.headers.set("content-disposition", "inline");
     return res;
   } catch {

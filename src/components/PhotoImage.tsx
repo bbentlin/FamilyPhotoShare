@@ -15,8 +15,8 @@ type Props = {
   loading?: "eager" | "lazy";
 };
 
-const PROXY_ENABLED = 
-  typeof process !== "undefined" && 
+const PROXY_ENABLED =
+  typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
 
 function isWindowsEdge() {
@@ -27,7 +27,10 @@ function isWindowsEdge() {
 
 function isFirebaseStorageUrl(u: string) {
   try {
-    const url = new URL(u, typeof window !== "undefined" ? window.location.href : "http://localhost");
+    const url = new URL(
+      u,
+      typeof window !== "undefined" ? window.location.href : "http://localhost"
+    );
     return (
       url.hostname.endsWith("firebasestorage.googleapis.com") ||
       url.hostname.endsWith("storage.googleapis.com")
@@ -45,10 +48,13 @@ export default function PhotoImage(props: Props) {
   const { src, alt, className, fill, sizes, priority, width, height, loading } =
     props;
 
-  const useProxy = isWindowsEdge() && PROXY_ENABLED && isFirebaseStorageUrl(src);
+  const useProxy =
+    isWindowsEdge() && PROXY_ENABLED && isFirebaseStorageUrl(src);
+  const [edgeSrc, setEdgeSrc] = useState<string | null>(null);
+  const isWinEdge = isWindowsEdge();
 
   // Windows Edge: use native <img>, optionally proxied URL, eager load
-  if (isWindowsEdge()) {
+  if (isWinEdge) {
     const style = fill
       ? ({
           position: "absolute",
@@ -61,23 +67,23 @@ export default function PhotoImage(props: Props) {
           width: width ?? "100%",
           height: height ?? "100%",
           display: "block",
-      } as const);
+        } as const);
+
+    const resolvedSrc =
+      edgeSrc ?? (useProxy ? `/api/image?u=${encodeURIComponent(src)}` : src);
 
     return (
-      <img 
-        src={useProxy ? proxied(src) : src}
+      <img
+        src={resolvedSrc}
         alt={alt}
         className={`object-cover ${className ?? ""}`}
         style={style}
         loading={loading ?? "eager"}
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
-        onError={(e) => {
-          console.error("Edge image failed", {
-            src,
-            usedProxy: useProxy,
-            currentSrc: (e.target as HTMLImageElement).currentSrc,
-          });
+        onError={() => {
+          // If proxy failed, fall back to direct URL
+          if (useProxy && !edgeSrc) setEdgeSrc(src);
         }}
       />
     );
@@ -97,7 +103,7 @@ export default function PhotoImage(props: Props) {
 
   if (attempt === 2) {
     return (
-      <img 
+      <img
         src={src}
         alt={alt}
         className={`object-cover ${className ?? ""}`}
@@ -109,7 +115,7 @@ export default function PhotoImage(props: Props) {
   }
 
   return (
-    <NextImage 
+    <NextImage
       src={src}
       alt={alt}
       className={`object-cover ${className ?? ""}`}
