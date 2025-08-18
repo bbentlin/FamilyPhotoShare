@@ -5,7 +5,7 @@ import {
   collection,
   query,
   orderBy,
-  where, // <-- add
+  where,
   doc,
   updateDoc,
   arrayUnion,
@@ -104,7 +104,7 @@ function AddToAlbumModalContent({
     if (!user) return null;
     return query(
       collection(db, "albums"),
-      where("createdBy", "==", user.uid), // <-- restrict to caller
+      where("createdBy", "==", user.uid),
       orderBy("updatedAt", "desc")
     );
   }, [db, user]);

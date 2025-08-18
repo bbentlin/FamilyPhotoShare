@@ -157,8 +157,8 @@ a:focus-visible {
     backface-visibility: hidden;
   }
   
-  /* Ensure touch targets are large enough */
-  button {
+  /* Replace the global 'button { min-height/min-width }' with: */
+  .touch-target {
     min-height: 44px !important;
     min-width: 44px !important;
   }
