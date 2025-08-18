@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { sendNotification } from "@/lib/notifications";
+import { notifyCommentOwner } from "@/lib/notifications";
 
 interface Comment {
   id: string;
@@ -81,15 +82,13 @@ export default function Comments({
 
       // Send notification if comment is not by photo owner
       if (user.uid !== photoOwnerId) {
-        await sendNotification({
-          type: "comment",
-          title: "New Comment on Your Photo",
-          message: `${
-            user.displayName || user.email
-          } commented on your photo: "${newComment.trim()}"`,
-          photoId: photoId,
-          triggeredBy: user.uid,
-          triggeredByName: user.displayName || user.email || "Unknown User",
+        notifyCommentOwner({
+          photoOwnerId,
+          commenterName: user.displayName || user.email || "Someone",
+          commentText: newComment.trim(),
+          photoTitle: undefined, // pass if available
+          photoUrl:
+            typeof window !== "undefined" ? window.location.href : undefined,
         });
       }
 

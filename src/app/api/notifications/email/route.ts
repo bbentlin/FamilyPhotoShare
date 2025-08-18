@@ -1,13 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
+
+const ALLOWED_ORIGINS = [
+  process.env.NEXT_PUBLIC_SITE_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  "http://localhost:3000",
+].filter(Boolean) as string[];
+
+function originAllowed(origin: string | null) {
+  if (!origin) return false;
+  try {
+    const o = new URL(origin);
+    return ALLOWED_ORIGINS.some((allowed) => {
+      const a = new URL(allowed);
+      return a.host === o.host && a.protocol === o.protocol;
+    });
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
+  if (!originAllowed(request.headers.get("origin"))) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
   try {
     const { to, subject, message, type } = await request.json();
 
     // Create transporter using Gmail SMTP
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: process.env.GMAIL_USER, // Your Gmail address
         pass: process.env.GMAIL_APP_PASSWORD, // Gmail App Password
@@ -35,7 +58,10 @@ export async function POST(request: NextRequest) {
             
             <div style="margin-top: 30px; padding: 15px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
               <p style="margin: 0; font-size: 14px; color: #92400e;">
-                💡 <strong>Notification Settings:</strong> This email was sent because you have "${type.replace('_', ' ')}" notifications enabled.<br>
+                💡 <strong>Notification Settings:</strong> This email was sent because you have "${type.replace(
+                  "_",
+                  " "
+                )}" notifications enabled.<br>
                 You can change your notification preferences in your Family Photo Share settings.
               </p>
             </div>
@@ -52,17 +78,19 @@ export async function POST(request: NextRequest) {
 
     await transporter.sendMail(mailOptions);
     console.log(`✅ Email sent successfully to ${to}`);
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Email sent successfully' 
+
+    return NextResponse.json({
+      success: true,
+      message: "Email sent successfully",
     });
   } catch (error) {
-    console.error('❌ Error sending email:', error);
+    console.error("❌ Error sending email:", error);
     return NextResponse.json(
-      { error: 'Failed to send email', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: "Failed to send email",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
 }
-

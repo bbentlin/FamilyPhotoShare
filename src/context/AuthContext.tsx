@@ -22,6 +22,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { ensureUserDoc } from "@/lib/user";
 
 interface AuthContextProps {
   user: User | null;
@@ -61,22 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (u) {
           // non-blocking user doc creation
           try {
-            const userRef = doc(db, "users", u.uid);
-            const snap = await getDoc(userRef);
-            if (!snap.exists()) {
-              await setDoc(userRef, {
-                uid: u.uid,
-                email: u.email,
-                displayName: u.displayName || u.email!.split("@")[0],
-                photoURL: u.photoURL,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-                lastLoginAt: serverTimestamp(),
-              });
-              console.log("✅ [Auth] Firestore user doc created");
-            }
+            await ensureUserDoc(u); // <-- creates/patches prefs if missing
           } catch (e) {
-            console.warn("⚠️ [Auth] could not create user doc:", e);
+            console.warn("[Auth] ensureUserDoc failed:", e);
           }
         }
       },
@@ -108,6 +96,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     if (cred.user) {
       await updateProfile(cred.user, { displayName: name });
+      // Create/patch user doc immediately to avoid races
+      try {
+        await ensureUserDoc(cred.user);
+      } catch (e) {
+        console.warn("[Auth] ensureUserDoc after signup failed:", e);
+      }
     }
   }
 

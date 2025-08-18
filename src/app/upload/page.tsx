@@ -9,6 +9,7 @@ import { getDb, getStorage } from "@/lib/firebase";
 import { toast } from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
+import { notifyNewUploadSubscribers } from "@/lib/notifications";
 
 // CACHING IMPORTS
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
@@ -144,6 +145,14 @@ export default function UploadPage() {
         };
 
         await addDoc(collection(db, "photos"), photoData);
+
+        // Notify subscribers (best-effort)
+        notifyNewUploadSubscribers({
+          uploaderId: user.uid,
+          uploaderName: user.displayName || user.email || "Someone",
+          photoTitle: photoData.title,
+          photoUrl: downloadURL,
+        });
 
         // INVALIDATE CACHE after successful upload
         CacheInvalidationManager.invalidateForAction("photo-upload", user.uid);

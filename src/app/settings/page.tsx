@@ -12,6 +12,7 @@ import {
   reauthenticateWithCredential,
 } from "firebase/auth";
 import { getDb } from "@/lib/firebase";
+import { saveNotificationPrefs } from "@/lib/user";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -48,29 +49,31 @@ export default function SettingsPage() {
 
   // Load user data
   useEffect(() => {
-    const loadUserData = async () => {
-      if (user) {
-        setDisplayName(user.displayName || "");
-        setEmail(user.email || "");
-
-        // Load user preferences from Firestore
-        try {
-          const userDocRef = doc(db, "users", user.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setEmailNotifications(userData.emailNotifications ?? true);
-            setNewUploadsNotification(userData.newUploadsNotification ?? true);
-            setCommentsNotification(userData.commentsNotification ?? true);
-          }
-        } catch (error) {
-          console.error("Error loading user preferences:", error);
-        }
+    let mounted = true;
+    (async () => {
+      const db = getDb();
+      setDb(db);
+      if (!user) return;
+      const ref = doc(db, "users", user.uid);
+      const snap = await getDoc(ref);
+      if (!mounted) return;
+      if (snap.exists()) {
+        const d = snap.data() as any;
+        setDisplayName(d.displayName ?? user.displayName ?? "");
+        setEmail(d.email ?? user.email ?? "");
+        setEmailNotifications(d.emailNotifications ?? true);
+        setNewUploadsNotification(d.newUploadsNotification ?? true);
+        setCommentsNotification(d.commentsNotification ?? true);
+      } else {
+        // ensure defaults (AuthContext also does this)
+        setEmailNotifications(true);
+        setNewUploadsNotification(true);
+        setCommentsNotification(true);
       }
+    })().catch(() => {});
+    return () => {
+      mounted = false;
     };
-
-    loadUserData();
   }, [user]);
 
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -237,33 +240,22 @@ export default function SettingsPage() {
     }
   };
 
-  const updateNotificationPreferences = async (
-    e: React.FormEvent<HTMLFormElement>
-  ) => {
-    e.preventDefault();
-    setMessage({ type: "", text: "" });
+  const handleSaveNotifications = async () => {
+    if (!user) return;
     setIsLoading(true);
-
+    setMessage({ type: "", text: "" });
     try {
-      if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-        await updateDoc(userDocRef, {
-          emailNotifications,
-          newUploadsNotification,
-          commentsNotification,
-        });
-
-        setMessage({
-          type: "success",
-          text: "Notification preferences updated successfully!",
-        });
-      }
-    } catch (error) {
+      await saveNotificationPrefs(user.uid, {
+        emailNotifications,
+        newUploadsNotification,
+        commentsNotification,
+      });
+      setMessage({ type: "success", text: "Notification preferences saved." });
+    } catch (e: any) {
       setMessage({
         type: "error",
-        text: "Failed to update notification preferences. Please try again.",
+        text: e?.message || "Failed to save preferences.",
       });
-      console.error("Error updating notification preferences:", error);
     } finally {
       setIsLoading(false);
     }
