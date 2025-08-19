@@ -13,11 +13,10 @@ type Props = {
   width?: number;
   height?: number;
   loading?: "eager" | "lazy";
+  edgeWidth?: number; // width hint for Edge/proxy
 };
 
-const PROXY_ENABLED =
-  typeof process !== "undefined" &&
-  process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
+const PROXY_ENABLED = process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === "1";
 
 function isWindowsEdge() {
   if (typeof navigator === "undefined") return false;
@@ -45,8 +44,18 @@ function proxied(src: string) {
 }
 
 export default function PhotoImage(props: Props) {
-  const { src, alt, className, fill, sizes, priority, width, height, loading } =
-    props;
+  const {
+    src,
+    alt,
+    className,
+    fill,
+    sizes,
+    priority,
+    width,
+    height,
+    loading,
+    edgeWidth,
+  } = props;
 
   const useProxy =
     isWindowsEdge() && PROXY_ENABLED && isFirebaseStorageUrl(src);
@@ -65,20 +74,24 @@ export default function PhotoImage(props: Props) {
         } as const)
       : ({
           width: width ?? "100%",
-          height: height ?? "100%",
+          height: height ?? "auto",
           display: "block",
         } as const);
 
-    const resolvedSrc =
-      edgeSrc ?? (useProxy ? `/api/image?u=${encodeURIComponent(src)}` : src);
+    // Heuristic: grid ~400px, modal ~1600px if not provided
+    const targetW = edgeWidth ?? (fill ? 1600 : width ?? 400);
+    const proxiedUrl = `/api/image?u=${encodeURIComponent(src)}&w=${Math.round(
+      targetW
+    )}&q=${priority ? 80 : 70}&fmt=webp`;
+    const resolvedSrc = edgeSrc ?? (useProxy ? proxiedUrl : src);
 
     return (
       <img
         src={resolvedSrc}
         alt={alt}
-        className={`object-cover ${className ?? ""}`}
+        className={className}
         style={style}
-        loading={loading ?? "eager"}
+        loading={loading ?? (priority ? "eager" : "lazy")}
         decoding="async"
         fetchPriority={priority ? "high" : "auto"}
         onError={() => {

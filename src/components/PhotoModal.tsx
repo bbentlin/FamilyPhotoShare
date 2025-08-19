@@ -147,10 +147,11 @@ export default function PhotoModal({
             <PhotoImage
               src={photo.url}
               alt={photo.title || "Photo"}
-              className="max-w-full max-h-full object-contain"
-              fill={true}
-              priority={true}
+              className="object-contain"
+              fill
+              priority
               sizes="100vw"
+              edgeWidth={1600}
             />
           </div>
 

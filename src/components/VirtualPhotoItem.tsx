@@ -42,11 +42,10 @@ const VirtualPhotoItem: React.FC<VirtualPhotoItemProps> = React.memo(
           <PhotoImage
             src={photo.url}
             alt={photo.title || "Photo"}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            className="h-full w-full object-cover"
             fill
-            sizes="250px"
-            priority={priority}
-            loading={loading} // <-- forward eager/lazy hint
+            loading="lazy"
+            edgeWidth={420} // good default for grid tiles
           />
         ) : (
           <div className="w-full h-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
