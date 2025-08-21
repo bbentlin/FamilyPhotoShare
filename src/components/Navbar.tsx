@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function Navbar() {
     <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="container mx-auto px-4">
         <div className="flex justify-between h-16">
+          {/* left */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href="/" className="flex items-center gap-2">
@@ -127,30 +129,34 @@ export default function Navbar() {
             </div>
           </div>
 
+          {/* right (desktop) */}
           <div className="hidden sm:flex sm:items-center">
             <div className="flex items-center gap-4">
               <ThemeToggle />
               {user ? (
-                <div className="flex items-center">
-                  <Link
-                    href="/upload"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
-                  >
-                    Upload Photos
-                  </Link>
-                  <div className="ml-3 relative">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium">
-                        {user.displayName?.[0] ||
-                          user.email?.[0]?.toUpperCase() ||
-                          "U"}
+                <div className="flex items-center gap-3">
+                  <NotificationBell />
+                  <div className="flex items-center">
+                    <Link
+                      href="/upload"
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
+                    >
+                      Upload Photos
+                    </Link>
+                    <div className="ml-3 relative">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium">
+                          {user.displayName?.[0] ||
+                            user.email?.[0]?.toUpperCase() ||
+                            "U"}
+                        </div>
+                        <button
+                          onClick={() => logout()}
+                          className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
+                        >
+                          Sign Out
+                        </button>
                       </div>
-                      <button
-                        onClick={() => logout()}
-                        className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 text-sm"
-                      >
-                        Sign Out
-                      </button>
                     </div>
                   </div>
                 </div>

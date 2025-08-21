@@ -8,10 +8,17 @@
   },
   "tailwindCSS.experimental.classRegex": [
     ["className=\"([^\"]*)", "\"([^\"]*)"],
-    ["className={[\"']([^}]*)[\"']}", "(?:\"|'|{)`?([^(?:\"|'|`)]*)`?(?:\"|'|})"]
+    [
+      "className={[\"']([^}]*)[\"']}",
+      "(?:\"|'|{)`?([^(?:\"|'|`)]*)`?(?:\"|'|})"
+    ]
   ],
   "editor.inlineSuggest.enabled": true,
   "css.validate": false,
   "tailwindCSS.validate": true,
-  "editor.formatOnSave": true
+  "editor.formatOnSave": true,
+  "emmet.includeLanguages": {
+    "typescript": "typescriptreact",
+    "javascript": "javascriptreact"
+  }
 }
