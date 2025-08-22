@@ -261,6 +261,13 @@ export default function SettingsPage() {
     }
   };
 
+  const updateNotificationPreferences = async (
+    e: React.FormEvent<HTMLFormElement>
+  ) => {
+    e.preventDefault();
+    await handleSaveNotifications();
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
