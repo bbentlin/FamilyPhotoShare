@@ -241,3 +241,4 @@ function escapeHtml(s: string) {
         return c;
     }
   });
+}
