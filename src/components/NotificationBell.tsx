@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "@/hooks/useNotifications";
 
@@ -9,6 +9,7 @@ export default function NotificationBell() {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
     useNotifications(true);
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const handleItemClick = useCallback(
     async (n: any) => {
@@ -19,13 +20,37 @@ export default function NotificationBell() {
     [markAsRead, router]
   );
 
+  // Close on outside click or Escape
+  useEffect(() => {
+    if (!open) return;
+    const onDocPointer = (e: MouseEvent | TouchEvent) => {
+      const el = rootRef.current;
+      if (el && !el.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocPointer);
+    document.addEventListener("touchstart", onDocPointer, { passive: true });
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocPointer);
+      document.removeEventListener("touchstart", onDocPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={rootRef}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
         aria-label="Notifications"
         title="Notifications"
+        aria-haspopup="menu"
+        aria-expanded={open}
       >
         {/* Bell icon */}
         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
@@ -39,7 +64,10 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+        <div
+          className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50"
+          role="menu"
+        >
           <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Notifications
@@ -65,6 +93,7 @@ export default function NotificationBell() {
                   className={`w-full text-left px-3 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 ${
                     n.read ? "opacity-70" : ""
                   }`}
+                  role="menuitem"
                 >
                   <div className="flex items-start gap-2">
                     <div
