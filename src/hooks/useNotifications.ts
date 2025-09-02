@@ -34,7 +34,7 @@ export function useNotifications(enableRealtime = true) {
   const unreadCount = (data || []).filter((n) => !n.read).length;
 
   const markAsRead = useCallback(async (id: string) => {
-    await updateDoc(doc, (db, "notifications", id), { read: true });
+    await updateDoc(doc(db, "notifications", id), { read: true });
   }, []);
 
   const markAllAsRead = useCallback(async (id: string) => {

@@ -41,28 +41,33 @@ export default function UploadPage() {
     }
   }, []);
 
-  // Client-side only check
+  // Client-side only check (non-fatal, and skip if we already have storage)
   useEffect(() => {
     if (typeof window === "undefined") return;
-
-    // Check Firebase Storage availability
-    const checkStorage = async () => {
+    if (storage) return;
+    
+    let canceled = false;
+    (async () => {
       try {
-        const storageInstance = getStorage();
-        if (!storageInstance) {
-          setStorageError("Firebase Storage is not available");
+        const s = getStorage();
+        if (!canceled && s) {
+          setStorage(s);
+          setStorageError("");
         }
       } catch (error) {
-        console.error("Storage check error:", error);
+        console.warn("Storage check error:", error);
+        // Non-fatal; UI will keep showing "Loading Storage..." and we won't block the page
         setStorageError("Storage service unavailable");
       }
-    };
+    })();
 
-    checkStorage();
-  }, []);
+    return () => {
+      canceled = true;
+    };
+  }, [storage]);
 
   // Show error if storage is not available
-  if (storageError) {
+  if (storageError && !storage) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
