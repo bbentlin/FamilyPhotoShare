@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { getDb, getStorage } from "@/lib/firebase";
+import { getDb, getStorageClient } from "@/lib/firebase";
 import { toast } from "react-hot-toast";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Link from "next/link";
@@ -54,9 +54,7 @@ export default function UploadPage() {
       if (canceled || storage) return;
       attempts += 1;
       try {
-        // Ensure the storage SDK chunk is loaded before calling our wrapper
-        await import("firebase/storage");
-        const s = getStorage();
+        const s = await getStorageClient();
         if (!canceled && s) {
           setStorage(s);
           setStorageError("");
