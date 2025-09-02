@@ -41,26 +41,39 @@ export default function UploadPage() {
     }
   }, []);
 
-  // Client-side only check (non-fatal, and skip if we already have storage)
+  // Client-side only check (non-fatal, retry + no console spam)
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (storage) return;
-    
+
     let canceled = false;
-    (async () => {
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const tryInit = async () => {
+      if (canceled || storage) return;
+      attempts += 1;
       try {
+        // Ensure the storage SDK chunk is loaded before calling our wrapper
+        await import("firebase/storage");
         const s = getStorage();
         if (!canceled && s) {
           setStorage(s);
           setStorageError("");
+          return;
         }
-      } catch (error) {
-        console.warn("Storage check error:", error);
-        // Non-fatal; UI will keep showing "Loading Storage..." and we won't block the page
+      } catch {
+        // swallow; we’ll retry
+      }
+      if (!canceled && attempts < maxAttempts) {
+        setTimeout(tryInit, 300); // small backoff
+      } else if (!canceled && !storage) {
+        // Show a single, user-facing error only if still not available
         setStorageError("Storage service unavailable");
       }
-    })();
+    };
 
+    tryInit();
     return () => {
       canceled = true;
     };
