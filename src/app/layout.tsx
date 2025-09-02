@@ -12,6 +12,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Family Photo Share",
   description: "Share photos with your family",
+  icons: { icon: "/familylogo.png" },
 };
 
 export default function RootLayout({

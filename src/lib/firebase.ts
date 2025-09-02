@@ -16,9 +16,13 @@ function getFirebaseApp(): FirebaseApp {
 }
 
 export const auth: Auth = getAuth(getFirebaseApp());
-const _db: Firestore = getFirestore(getFirebaseApp());
+
+// Export a singleton Firestore instance so imports like { db } work
+export const db: Firestore = getFirestore(getFirebaseApp());
+
+// Back-compat for callers using getDb()
 export function getDb(): Firestore {
-  return _db;
+  return db;
 }
 
 // Client-only, async storage getter (loads the SDK chunk before use)
