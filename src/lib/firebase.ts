@@ -1,6 +1,10 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  type Firestore,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -17,15 +21,24 @@ function getFirebaseApp(): FirebaseApp {
 
 export const auth: Auth = getAuth(getFirebaseApp());
 
-// Export a singleton Firestore instance so imports like { db } work
-export const db: Firestore = getFirestore(getFirebaseApp());
-
-// Back-compat for callers using getDb()
+// Firestore: use XHR long-polling on the client to avoid CORS/proxy issues
+let _db: Firestore | null = null;
 export function getDb(): Firestore {
-  return db;
+  if (_db) return _db;
+  const app = getFirebaseApp();
+  if (typeof window !== "undefined") {
+    _db = initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      useFetchStreams: false,
+    });
+  } else {
+    _db = getFirestore(app);
+  }
+  return _db;
 }
+export const db: Firestore = getDb();
 
-// Client-only, async storage getter (loads the SDK chunk before use)
+// Client-only, async Storage getter
 export async function getStorageClient() {
   if (typeof window === "undefined") {
     throw new Error("Firebase Storage is not available on the server");
