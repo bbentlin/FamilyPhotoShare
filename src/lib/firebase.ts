@@ -28,7 +28,7 @@ export function getDb(): Firestore {
   const app = getFirebaseApp();
   if (typeof window !== "undefined") {
     _db = initializeFirestore(app, {
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
       useFetchStreams: false,
     });
   } else {
