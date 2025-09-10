@@ -27,33 +27,8 @@ export default function NewAlbumPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // ✅ MOVE ALL STATE HOOKS TO THE TOP
   const [db, setDb] = useState<any>(null);
-  useEffect(() => {
-    setDb(getDb());
-  }, []);
-
-  // Add error handling for missing db
-  if (!db) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">
-            Database Error
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Firestore is not available
-          </p>
-          <Link
-            href="/albums"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Back to Albums
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const [albumData, setAlbumData] = useState({
     title: "",
     description: "",
@@ -61,28 +36,13 @@ export default function NewAlbumPage() {
   });
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState("");
-
-  // Cover photo selection states
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState("");
   const [isMounted, setIsMounted] = useState(false);
 
-  // CACHED PHOTOS QUERY for cover selection
-  const photosQuery = useMemo(() => {
-    if (!user) return null;
-    return query(collection(db, "photos"), orderBy("createdAt", "desc"));
-  }, [user]);
-
-  const {
-    data: photos,
-    loading: isLoadingPhotos,
-    error: photosError,
-    refetch: refetchPhotos,
-  } = useCachedFirebaseQuery(photosQuery, {
-    cacheKey: `user_photos_for_cover_${user?.uid || "none"}`,
-    cacheTtl: CACHE_CONFIGS.photos.ttl,
-    enableRealtime: false, // No real-time needed for cover selection
-    staleWhileRevalidate: true,
-  });
+  // ✅ MOVE ALL EFFECTS TO THE TOP
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -98,7 +58,25 @@ export default function NewAlbumPage() {
     }
   }, [user, loading, router]);
 
-  // Handle input changes
+  // ✅ MOVE ALL QUERIES/MEMOS TO THE TOP
+  const photosQuery = useMemo(() => {
+    if (!user || !db) return null;
+    return query(collection(db, "photos"), orderBy("createdAt", "desc"));
+  }, [user, db]);
+
+  const {
+    data: photos,
+    loading: isLoadingPhotos,
+    error: photosError,
+    refetch: refetchPhotos,
+  } = useCachedFirebaseQuery(photosQuery, {
+    cacheKey: `user_photos_for_cover_${user?.uid || "none"}`,
+    cacheTtl: CACHE_CONFIGS.photos.ttl,
+    enableRealtime: false,
+    staleWhileRevalidate: true,
+  });
+
+  // ✅ MOVE ALL CALLBACKS TO THE TOP
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
       const { name, value, type } = e.target;
@@ -115,7 +93,6 @@ export default function NewAlbumPage() {
     []
   );
 
-  // Handle refresh if photos fail to load
   const handleRefreshPhotos = useCallback(() => {
     if (user) {
       CacheInvalidationManager.invalidateForAction("photos-refresh", user.uid);
@@ -123,7 +100,6 @@ export default function NewAlbumPage() {
     }
   }, [user, refetchPhotos]);
 
-  // Create album function
   const createAlbum = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -166,8 +142,6 @@ export default function NewAlbumPage() {
         }
 
         toast.success(`Album "${albumData.title}" created successfully!`);
-
-        // Redirect to the new album
         router.push(`/albums/${albumDoc.id}`);
       } catch (error: unknown) {
         console.error("Error creating album:", error);
@@ -177,11 +151,34 @@ export default function NewAlbumPage() {
         setIsCreating(false);
       }
     },
-    [user, albumData, selectedCoverPhoto, router]
+    [user, albumData, selectedCoverPhoto, router, db]
   );
 
+  // ✅ NOW HANDLE CONDITIONAL RENDERING AFTER ALL HOOKS
   if (!isMounted) {
     return <LoadingSpinner />;
+  }
+
+  // Error handling for missing db - AFTER all hooks
+  if (!db) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Database Error
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Firestore is not available
+          </p>
+          <Link
+            href="/albums"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Albums
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -251,7 +248,7 @@ export default function NewAlbumPage() {
                   htmlFor="description"
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
-                  Description (Optional)
+                  Description
                 </label>
                 <textarea
                   id="description"
@@ -267,16 +264,43 @@ export default function NewAlbumPage() {
               </div>
             </div>
 
+            {/* Privacy Settings */}
+            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                Privacy Settings
+              </h3>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isPublic"
+                  name="isPublic"
+                  checked={albumData.isPublic}
+                  onChange={handleInputChange}
+                  disabled={isCreating}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+                />
+                <label
+                  htmlFor="isPublic"
+                  className="ml-2 block text-sm text-gray-900 dark:text-white"
+                >
+                  Make this album public
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Public albums can be viewed by anyone with the link
+              </p>
+            </div>
+
             {/* Cover Photo Selection */}
             <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
                 Cover Photo (Optional)
               </h3>
 
               {photosError ? (
-                <div className="text-center py-8 bg-red-50 dark:bg-red-900/20 rounded-lg border-2 border-dashed border-red-300 dark:border-red-800">
+                <div className="text-center py-8">
                   <svg
-                    className="mx-auto h-12 w-12 text-red-400 dark:text-red-500 mb-4"
+                    className="mx-auto h-12 w-12 text-red-400 mb-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -304,94 +328,50 @@ export default function NewAlbumPage() {
                   <LoadingSpinner message="Loading photos..." />
                 </div>
               ) : photos && photos.length > 0 ? (
-                <>
-                  {/* No Cover Option */}
-                  <div className="mb-4">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                  {photos.slice(0, 12).map((photo) => (
                     <button
+                      key={photo.id}
                       type="button"
-                      onClick={() => setSelectedCoverPhoto("")}
+                      onClick={() => setSelectedCoverPhoto(photo.url)}
+                      className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                        selectedCoverPhoto === photo.url
+                          ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
+                          : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                      }`}
                       disabled={isCreating}
-                      className={`w-full p-4 border-2 border-dashed rounded-lg transition-colors ${
-                        selectedCoverPhoto === ""
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
-                      } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
-                      <div className="flex items-center justify-center">
-                        <svg
-                          className="h-8 w-8 text-gray-400 dark:text-gray-500 mr-2"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                          />
-                        </svg>
-                        <span
-                          className={`font-medium ${
-                            selectedCoverPhoto === ""
-                              ? "text-blue-700 dark:text-blue-300"
-                              : "text-gray-600 dark:text-gray-400"
-                          }`}
-                        >
-                          No cover photo
-                        </span>
-                      </div>
-                    </button>
-                  </div>
-
-                  {/* Photos Grid */}
-                  <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-64 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg p-3">
-                    {photos.map((photo) => (
-                      <div
-                        key={photo.id}
-                        className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                          selectedCoverPhoto === photo.url
-                            ? "border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800"
-                            : "border-transparent hover:border-gray-300 dark:hover:border-gray-500"
-                        } ${isCreating ? "opacity-50 cursor-not-allowed" : ""}`}
-                        onClick={() =>
-                          !isCreating && setSelectedCoverPhoto(photo.url)
-                        }
-                      >
-                        <PhotoImage
-                          src={photo.url}
-                          alt={photo.title || "Photo"}
-                          className="w-full h-full object-cover"
-                          fill={true}
-                          sizes="(max-width: 640px) 25vw, 15vw"
-                        />
-
-                        {/* Selection indicator */}
-                        {selectedCoverPhoto === photo.url && (
-                          <div className="absolute inset-0 bg-blue-600 bg-opacity-20 flex items-center justify-center">
-                            <div className="bg-blue-600 text-white rounded-full p-1">
-                              <svg
-                                className="h-3 w-3"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                            </div>
+                      <PhotoImage
+                        src={photo.url}
+                        alt={photo.title || "Photo"}
+                        className="w-full h-full object-cover"
+                        fill
+                        loading="lazy"
+                      />
+                      {selectedCoverPhoto === photo.url && (
+                        <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                          <div className="bg-blue-600 text-white rounded-full p-1">
+                            <svg
+                              className="h-4 w-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               ) : (
-                <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                <div className="text-center py-8">
                   <svg
                     className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4"
                     fill="none"
@@ -409,94 +389,58 @@ export default function NewAlbumPage() {
                     No photos available
                   </p>
                   <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Upload some photos first to select a cover
+                    Upload some photos first to set a cover photo
                   </p>
-                  <Link
-                    href="/upload"
-                    className="inline-flex items-center mt-3 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                  >
-                    Upload Photos →
-                  </Link>
                 </div>
               )}
             </div>
 
-            {/* Privacy Settings */}
-            <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
-                Privacy Settings
-              </h3>
-
-              <div className="space-y-3">
-                <label className="flex items-start">
-                  <input
-                    type="checkbox"
-                    name="isPublic"
-                    checked={albumData.isPublic}
-                    onChange={handleInputChange}
-                    disabled={isCreating}
-                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
-                  />
-                  <div className="ml-3">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Make this album public
-                    </span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Public albums can be viewed by all family members. Private
-                      albums are only visible to you unless shared.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Album Preview */}
+            {/* Preview */}
             <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-6 bg-gray-50 dark:bg-gray-700">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
-                Album Preview
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                Preview
               </h3>
-
-              <div className="flex items-center p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div className="w-16 h-16 rounded-lg bg-gray-200 dark:bg-gray-600 flex items-center justify-center mr-4 overflow-hidden">
-                  {selectedCoverPhoto ? (
-                    <PhotoImage
-                      src={selectedCoverPhoto}
-                      alt={"Cover preview"}
-                      className="w-16 h-16 object-cover rounded-lg"
-                      width={64}
-                      height={64}
-                      sizes="64px"
-                    />
-                  ) : (
-                    <svg
-                      className="h-8 w-8 text-gray-400 dark:text-gray-500"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-lg flex items-center justify-center mr-4 overflow-hidden">
+                    {selectedCoverPhoto ? (
+                      <PhotoImage
+                        src={selectedCoverPhoto}
+                        alt="Cover photo"
+                        className="w-full h-full object-cover"
+                        fill
+                        loading="lazy"
                       />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-gray-900 dark:text-white truncate">
-                    {albumData.title || "Untitled Album"}
-                  </h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                    {albumData.description ||
-                      "Album description will appear here"}
-                  </p>
-                  <div className="flex items-center mt-2 text-xs text-gray-400 dark:text-gray-500">
-                    <span>0 photos</span>
-                    <span className="mx-2">•</span>
-                    <span>{albumData.isPublic ? "Public" : "Private"}</span>
-                    <span className="mx-2">•</span>
-                    <span>Created by {user?.displayName || user?.email}</span>
+                    ) : (
+                      <svg
+                        className="h-8 w-8 text-gray-400 dark:text-gray-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">
+                      {albumData.title || "Album Title"}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {albumData.description || "No description"}
+                    </p>
+                    <div className="flex items-center mt-2 text-xs text-gray-400 dark:text-gray-500">
+                      <span>0 photos</span>
+                      <span className="mx-2">•</span>
+                      <span>{albumData.isPublic ? "Public" : "Private"}</span>
+                      <span className="mx-2">•</span>
+                      <span>Created by {user?.displayName || user?.email}</span>
+                    </div>
                   </div>
                 </div>
               </div>

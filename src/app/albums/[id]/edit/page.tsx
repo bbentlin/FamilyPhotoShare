@@ -13,6 +13,7 @@ import {
   query,
   orderBy,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import Link from "next/link";
@@ -34,33 +35,8 @@ export default function EditAlbumPage() {
   const params = useParams();
   const albumId = params.id as string;
 
+  // ✅ MOVE ALL STATE HOOKS TO THE TOP
   const [db, setDb] = useState<any>(null);
-  useEffect(() => {
-    setDb(getDb());
-  }, []);
-
-  // If db is not available, show error state
-  if (!db) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">
-            Database Error
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Firestore is not available
-          </p>
-          <Link
-            href="/albums"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Back to Albums
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const [albumData, setAlbumData] = useState({
     title: "",
     description: "",
@@ -72,9 +48,14 @@ export default function EditAlbumPage() {
   const [selectedCoverPhoto, setSelectedCoverPhoto] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // ✅ MOVE ALL EFFECTS TO THE TOP
+  useEffect(() => {
+    setDb(getDb());
+  }, []);
+
   // CACHED ALBUM DATA
   const albumDocRef = useMemo(
-    () => (albumId ? doc(db, "albums", albumId) : null),
+    () => (albumId && db ? doc(db, "albums", albumId) : null),
     [albumId, db]
   );
 
@@ -93,7 +74,7 @@ export default function EditAlbumPage() {
 
   // CACHED PHOTOS QUERY for cover selection
   const photosQuery = useMemo(() => {
-    if (!user) return null;
+    if (!user || !db) return null;
     return query(collection(db, "photos"), orderBy("createdAt", "desc"));
   }, [user, db]);
 
@@ -111,7 +92,7 @@ export default function EditAlbumPage() {
 
   // CACHED ALBUM PHOTOS
   const albumPhotosQuery = useMemo(() => {
-    if (!albumId) return null;
+    if (!albumId || !db) return null;
     return query(
       collection(db, "photos"),
       where("albums", "array-contains", albumId),
@@ -244,7 +225,7 @@ export default function EditAlbumPage() {
         setIsUpdating(false);
       }
     },
-    [user, album, albumData, selectedCoverPhoto, albumId, router]
+    [user, album, albumData, selectedCoverPhoto, albumId, router, db]
   );
 
   // Delete album function
@@ -253,23 +234,28 @@ export default function EditAlbumPage() {
 
     setIsDeleting(true);
     try {
+      // Use batch write for atomic operation
+      const batch = writeBatch(db);
+
       // Remove album reference from all photos in this album
       if (albumPhotos && albumPhotos.length > 0) {
-        const updatePromises = albumPhotos.map(async (photo) => {
+        albumPhotos.forEach((photo) => {
           const photoRef = doc(db, "photos", photo.id);
           const updatedAlbums =
             photo.albums?.filter((id) => id !== albumId) || [];
-          await updateDoc(photoRef, {
+          batch.update(photoRef, {
             albums: updatedAlbums,
             updatedAt: serverTimestamp(),
           });
         });
-        await Promise.all(updatePromises);
       }
 
       // Delete the album document
       const albumRef = doc(db, "albums", albumId);
-      await deleteDoc(albumRef);
+      batch.delete(albumRef);
+
+      // Commit the batch
+      await batch.commit();
 
       // INVALIDATE CACHE after successful deletion
       if (user) {
@@ -281,12 +267,42 @@ export default function EditAlbumPage() {
       router.push("/albums");
     } catch (error: unknown) {
       console.error("Error deleting album:", error);
-      toast.error("Failed to delete album. Please try again.");
+
+      // More specific error handling
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("permissions")) {
+        toast.error("You don't have permission to delete this album");
+      } else {
+        toast.error("Failed to delete album. Please try again.");
+      }
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);
     }
-  }, [user, album, albumPhotos, albumId, router]);
+  }, [user, album, albumPhotos, albumId, router, db]);
+
+  // If db is not available, show error state
+  if (!db) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Database Error
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Firestore is not available
+          </p>
+          <Link
+            href="/albums"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Back to Albums
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Loading state
   if (loading || albumLoading || isLoadingAlbumPhotos) {

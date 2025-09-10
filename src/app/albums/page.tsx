@@ -11,7 +11,7 @@ import {
   query,
   where,
   getDocs,
-  updateDoc, // Just import it normally
+  writeBatch, 
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { Album } from "@/types";
@@ -29,22 +29,15 @@ export default function AlbumsPage() {
   const [deletingAlbumId, setDeletingAlbumId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [albumToDelete, setAlbumToDelete] = useState<Album | null>(null);
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [dbLoading, setDbLoading] = useState(true);
-  const [db, setDb] = useState<any>(null);
-
-  useEffect(() => {
-    setDb(getDb());
-  }, []);
 
   // USE CACHED ALBUMS HOOK
   const {
-    data: cachedAlbums,
+    albums: cachedAlbums, // RENAME TO cachedAlbums to avoid conflict
     loading: isLoading,
     error,
     refetch,
     isStale,
-  } = useCachedAlbums(true); // Enable realtime updates
+  } = useCachedAlbums(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -53,77 +46,42 @@ export default function AlbumsPage() {
     }
   }, [user, loading, router]);
 
-  // Fetch albums from the database
-  useEffect(() => {
-    const fetchAlbums = async () => {
-      if (!user || !db) {
-        setDbLoading(false);
-        return;
-      }
-
-      setDbLoading(true);
-
-      try {
-        const { collection, query, orderBy, getDocs } = await import(
-          "firebase/firestore"
-        );
-        const albumsQuery = query(
-          collection(db, "albums"),
-          where("createdBy", "==", user.uid),
-          orderBy("updatedAt", "desc")
-        );
-        const albumsSnapshot = await getDocs(albumsQuery);
-
-        const fetchedAlbums = albumsSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Album[];
-
-        setAlbums(fetchedAlbums);
-      } catch (error) {
-        console.error("Error fetching albums:", error);
-      } finally {
-        setDbLoading(false);
-      }
-    };
-
-    fetchAlbums();
-  }, [user, db]);
-
-  // Delete album function
+  // Handle album deletion
   const handleDeleteAlbum = useCallback(
     async (album: Album) => {
-      if (!user || !album.id) return;
+      if (!user || !album) return;
 
       setDeletingAlbumId(album.id);
-
       try {
-        // Check if user can delete this album (owner or admin)
-        if (album.createdBy !== user.uid) {
-          toast.error("You can only delete albums you created");
-          return;
-        }
+        const db = getDb(); 
+        const batch = writeBatch(db);
 
-        // Delete the album document
-        await deleteDoc(doc(db, "albums", album.id));
-
-        // Remove album reference from photos (if your data structure uses this)
+        // Find all photos that are in this album
         const photosQuery = query(
           collection(db, "photos"),
-          where("albumId", "==", album.id)
+          where("albums", "array-contains", album.id)
         );
         const photosSnapshot = await getDocs(photosQuery);
 
-        const updatePromises = photosSnapshot.docs.map((photoDoc) =>
-          updateDoc(doc(db, "photos", photoDoc.id), {
-            albumId: null, // or you could use deleteField() to remove the field entirely
-          })
-        );
+        // For each photo, remove the album from its 'albums' array
+        photosSnapshot.forEach((photoDoc) => {
+          const photoRef = doc(db, "photos", photoDoc.id);
+          const photoData = photoDoc.data();
+          const updatedAlbums =
+            photoData.albums?.filter((id: string) => id !== album.id) || [];
+          batch.update(photoRef, { albums: updatedAlbums });
+        });
 
-        await Promise.all(updatePromises);
+        // Delete the album document itself
+        const albumRef = doc(db, "albums", album.id);
+        batch.delete(albumRef);
+
+        // Commit all the batched writes at once
+        await batch.commit();
 
         // INVALIDATE CACHE
         CacheInvalidationManager.invalidateForAction("album-delete", user.uid);
+        CacheInvalidationManager.invalidateForAction("photo-update", user.uid); // Invalidate photos too
 
         // Refetch to update UI immediately
         refetch();
@@ -154,7 +112,7 @@ export default function AlbumsPage() {
   };
 
   // Loading screen
-  if (loading || dbLoading || isLoading) {
+  if (loading || isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <LoadingSpinner message="Loading albums..." />
@@ -162,154 +120,142 @@ export default function AlbumsPage() {
     );
   }
 
-  if (!db) {
-    return <div>Database not available</div>;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              My Albums
+            </h1>
+            <Link
+              href="/albums/new"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              + Create Album
+            </Link>
+          </div>
+        </div>
+      </header>
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Photo Albums
-            {isStale && (
-              <span className="text-xs text-yellow-500 ml-2">
-                (updating...)
-              </span>
-            )}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Organize your family photos into beautiful albums
-          </p>
-        </div>
+        {isStale && (
+          <div className="mb-4 text-center text-sm text-yellow-600 dark:text-yellow-400">
+            Updating albums...
+          </div>
+        )}
 
-        {albums.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {albums.map((album, index) => (
+        {cachedAlbums && cachedAlbums.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {cachedAlbums.map((album) => (
               <div
                 key={album.id}
-                className="rounded-xl overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                className="group relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 transition-all hover:shadow-lg hover:-translate-y-1"
               >
-                <div className="relative aspect-square min-h-[200px] bg-gray-100 dark:bg-gray-700">
-                  {album.coverPhoto && (
-                    <PhotoImage
-                      src={album.coverPhoto}
-                      alt={album.title}
-                      className="w-full h-full object-cover"
-                      fill
-                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                      priority={index < 6} // <-- eager for first row of cards
-                    />
-                  )}
-                </div>
-
-                {/* Album Info */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <Link href={`/albums/${album.id}`}>
-                        <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1 hover:text-blue-600 dark:hover:text-blue-400">
-                          {album.title}
-                        </h3>
-                      </Link>
-                      {album.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                          {album.description}
-                        </p>
-                      )}
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        Updated{" "}
-                        {new Date(
-                          typeof album.updatedAt === "object" &&
-                          album.updatedAt &&
-                          "toDate" in album.updatedAt
-                            ? (album.updatedAt as any).toDate()
-                            : album.updatedAt
-                        ).toLocaleDateString()}
-                      </p>
-                    </div>
-
-                    {/* Delete Button - Only show if user created the album */}
-                    {album.createdBy === user?.uid && (
-                      <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            confirmDeleteAlbum(album);
-                          }}
-                          disabled={deletingAlbumId === album.id}
-                          className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors disabled:opacity-50"
-                          title="Delete album"
+                <Link href={`/albums/${album.id}`} className="block">
+                  <div className="aspect-square w-full relative">
+                    {album.coverPhoto ? (
+                      <PhotoImage
+                        src={album.coverPhoto}
+                        alt={album.title}
+                        className="object-cover"
+                        fill
+                        priority
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                        <svg
+                          className="w-12 h-12 text-gray-300 dark:text-gray-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
                         >
-                          {deletingAlbumId === album.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <svg
-                              className="h-4 w-4"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          )}
-                        </button>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
                       </div>
                     )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   </div>
+                  <div className="absolute bottom-0 left-0 p-4">
+                    <h3 className="text-white font-bold text-lg truncate">
+                      {album.title}
+                    </h3>
+                    <p className="text-gray-200 text-sm">
+                      {album.photoCount || 0} photos
+                    </p>
+                  </div>
+                </Link>
+                <div className="absolute top-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Link
+                    href={`/albums/${album.id}/edit`}
+                    className="p-2 bg-white/80 dark:bg-gray-900/80 rounded-full text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L16.732 3.732z"
+                      />
+                    </svg>
+                  </Link>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      confirmDeleteAlbum(album);
+                    }}
+                    disabled={deletingAlbumId === album.id}
+                    className="p-2 bg-red-500/80 rounded-full text-white hover:bg-red-500 disabled:bg-gray-400"
+                  >
+                    {deletingAlbumId === album.id ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-center py-16">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 max-w-md mx-auto">
-              <svg
-                className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                No albums yet
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Create your first album to organize your family photos
-              </p>
-              <Link
-                href="/albums/new"
-                className="inline-flex items-center px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium"
-              >
-                <svg
-                  className="h-5 w-5 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Create Your First Album
-              </Link>
-            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              No albums yet
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 mt-2 mb-6">
+              Create your first album to start organizing photos.
+            </p>
+            <Link
+              href="/albums/new"
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create Album
+            </Link>
           </div>
         )}
 
@@ -344,48 +290,32 @@ export default function AlbumsPage() {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                   />
                 </svg>
               </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                  Delete Album
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  This action cannot be undone.
-                </p>
-              </div>
+              <h3 className="ml-4 text-lg font-medium text-gray-900 dark:text-white">
+                Delete Album
+              </h3>
             </div>
-
-            <div className="mb-6">
-              <p className="text-gray-700 dark:text-gray-300">
-                Are you sure you want to delete{" "}
-                <strong>"{albumToDelete.title}"</strong>? This will remove the
-                album but not the photos themselves.
-              </p>
-            </div>
-
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete the album "
+              <strong>{albumToDelete.title}</strong>"? This will not delete the
+              photos, but it will remove them from this album. This action
+              cannot be undone.
+            </p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={cancelDelete}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteAlbum(albumToDelete)}
-                disabled={deletingAlbumId === albumToDelete.id}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors disabled:opacity-50 flex items-center"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
-                {deletingAlbumId === albumToDelete.id ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Deleting...
-                  </>
-                ) : (
-                  "Delete Album"
-                )}
+                Delete
               </button>
             </div>
           </div>

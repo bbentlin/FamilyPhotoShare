@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { collection, query, orderBy, limit } from "firebase/firestore";
-import { getDb } from "@/lib/firebase";
+import { db } from "@/lib/firebase"; // ✅ Import db directly
 import {
   DndContext,
   closestCenter,
@@ -245,7 +245,7 @@ export default function DashboardPage() {
   const recentPhotosQuery = useMemo(() => {
     if (!user) return null;
     return query(
-      collection(getDb(), "photos"),
+      collection(db, "photos"), // ✅ Use db directly
       orderBy("createdAt", "desc"),
       limit(12)
     );
@@ -263,10 +263,10 @@ export default function DashboardPage() {
   });
 
   const {
-    data: albums,
+    albums,
     loading: albumsLoading,
     isStale: albumsStale,
-  } = useCachedAlbums(true);
+  } = useCachedAlbums(false);
 
   const [familyMembers] = useState<Array<{ id: string; [key: string]: any }>>(
     []
@@ -567,7 +567,7 @@ export default function DashboardPage() {
 
               {albums.length > 0 ? (
                 <div className="space-y-3">
-                  {albums.slice(0, 3).map((album, i) => (
+                  {albums.slice(0, 3).map((album: Album, i: number) => (
                     <Link
                       key={album.id}
                       href={`/albums/${album.id}`}
@@ -731,7 +731,7 @@ export default function DashboardPage() {
             photo={selectedPhotoForAlbum}
             isOpen={showAddToAlbumModal}
             onClose={closeAddToAlbumModal}
-            onSuccess={handleAlbumSuccess}
+            db={db} // ✅ Use db directly
           />
         </Suspense>
       )}

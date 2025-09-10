@@ -4,10 +4,12 @@ import {
   onSnapshot,
   getDocs,
   DocumentData,
-  QuerySnapshot
-} from 'firebase/firestore';
+  QuerySnapshot,
+} from "firebase/firestore";
 import { firebaseCache, CACHE_CONFIGS } from "@/lib/firebaseCache";
 import { useAuth } from "@/context/AuthContext";
+
+// No db or getDb import is needed here, as the query is passed in fully formed.
 
 interface UseCachedFirebaseQueryOptions {
   cacheKey: string;
@@ -23,168 +25,137 @@ export function useCachedFirebaseQuery<T = DocumentData>(
   const { user } = useAuth();
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<any>(null);
   const [isStale, setIsStale] = useState(false);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const queryRef = useRef<Query | null>(null);
 
-  const fetchData = useCallback(async (skipCache = false) => {
-    if (!query) return { loading: false, data: []}
+  const fetchData = useCallback(
+    async (isStaleRefresh = false) => {
+      if (!query || !user) {
+        setLoading(false);
+        return;
+      }
 
-    try {
-      const cacheKey = `${options.cacheKey}_${user?.uid || 'anonymous'}`;
+      const cacheKey = `${options.cacheKey}_${user.uid}`;
 
-      // Try cache first (unless skipping)
-      if (!skipCache) {
-        const cached = firebaseCache.get<T[]>(
-          options.cacheKey,
-          { query: query.toString() },
-          user?.uid
-        );
-
+      if (!isStaleRefresh) {
+        const cached = firebaseCache.get<T[]>(cacheKey);
         if (cached) {
           setData(cached);
           setLoading(false);
-
           if (options.staleWhileRevalidate) {
             setIsStale(true);
-            // Continue to fetch fresh data in background
-          } else {
-            return;
+            fetchData(true); // Fetch in background
           }
+          return;
         }
       }
 
-      // Fetch from Firebase
-      const snapshot = await getDocs(query);
-      const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as T));
-      setData(docs);
-      setLoading(false); // <-- make sure this is here!
-
-      // Update state
-      setIsStale(false);
-      setLoading(false);
-      setError(null);
-
-      // Cache the result
-      firebaseCache.set(
-        options.cacheKey,
-        docs,
-        { ttl: options.cacheTtl },
-        { query: query.toString() },
-        user?.uid
-      );
-
-    } catch (err) {
-      console.error('Firebase query error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setLoading(false);
-    }
-  }, [query, options.cacheKey, options.cacheTtl, options.staleWhileRevalidate, user?.uid]);
-
-  const setupRealtime = useCallback(() => {
-    if (!query || !options.enableRealtime) return;
-
-    // Clean up previous listener
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-    }
-
-    const unsubscribe = onSnapshot(
-      query,
-      (snapshot: QuerySnapshot) => {
-        const freshData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as T[];
-
-        setData(freshData);
-        setIsStale(false);
-        setError(null);
-        setLoading(false);
-
-        // Update cache with real-time data
-        firebaseCache.set(
-          options.cacheKey,
-          freshData,
-          { ttl: options.cacheTtl },
-          { query: query.toString() },
-          user?.uid
+      // Not in cache or stale, fetch from Firestore
+      try {
+        const snapshot = await getDocs(query);
+        const docs = snapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as T)
         );
-      },
-      (err) => {
-        console.error('Realtime listener error:', err);
-        setError(err.message);
-        setLoading(false);
+
+        setData(docs);
+        setError(null);
+        setIsStale(false);
+        firebaseCache.set(cacheKey, docs, { ttl: options.cacheTtl });
+      } catch (err: any) {
+        console.error("Firebase query error:", err);
+        setError(err);
+      } finally {
+        if (!isStaleRefresh) {
+          setLoading(false);
+        }
       }
-    );
+    },
+    [
+      query,
+      user,
+      options.cacheKey,
+      options.cacheTtl,
+      options.staleWhileRevalidate,
+    ]
+  );
 
-    unsubscribeRef.current = unsubscribe;
-  }, [query, options.enableRealtime, options.cacheKey, options.cacheTtl, user?.uid]);
-
-  // Effect to handle query changes
   useEffect(() => {
-    if (!query) {
+    if (!query || !user) {
       setData([]);
-      setLoading(false);
+      setLoading(true);
       return;
     }
 
-    // If query changed, reset states
-    if (queryRef.current !== query) {
-      setLoading(true);
-      setError(null);
-      queryRef.current = query;
-    }
-
     if (options.enableRealtime) {
-      setupRealtime();
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+      const unsubscribe = onSnapshot(
+        query,
+        (snapshot: QuerySnapshot) => {
+          const freshData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as T[];
+
+          setData(freshData);
+          setError(null);
+          setLoading(false);
+          setIsStale(false);
+          firebaseCache.set(`${options.cacheKey}_${user.uid}`, freshData, {
+            ttl: options.cacheTtl,
+          });
+        },
+        (err) => {
+          console.error("Realtime listener error:", err);
+          setError(err);
+          setLoading(false);
+        }
+      );
+      unsubscribeRef.current = unsubscribe;
     } else {
       fetchData();
     }
 
-    return () =>  {
+    return () => {
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
-        unsubscribeRef.current = null;
       }
     };
-  }, [query, fetchData, setupRealtime, options.enableRealtime]);
+  }, [query, user, options.enableRealtime, fetchData]);
 
   const refetch = useCallback(() => {
-    setLoading(true);
-    fetchData(true); // Skip cache
-  }, [fetchData]);
+    if (query && user) {
+      setLoading(true);
+      const cacheKey = `${options.cacheKey}_${user.uid}`;
+      firebaseCache.invalidate(cacheKey);
+      fetchData();
+    }
+  }, [query, user, options.cacheKey, fetchData]);
 
-  const invalidateCache = useCallback(() => {
-    firebaseCache.invalidate(
-      options.cacheKey,
-      { query: query?.toString() },
-      user?.uid
-    );
-  }, [options.cacheKey, query, user?.uid]);
+  const emptyResult = useMemo(
+    () => ({
+      data: [],
+      loading: false,
+      error: null,
+      isStale: false,
+      refetch: () => {},
+      invalidateCache: () => {},
+    }),
+    []
+  );
 
-  // If query is null, immediately return not loading and empty data (memoized)
-  const emptyResult = useMemo(() => ({
-    data: [],
-    loading: false,
-    error: null,
-    isStale: false,
-    refetch: () => {},
-    invalidateCache: () => {},
-  }), []);
-
-  if (!query) {
+  if (!query || !user) {
     return emptyResult;
   }
 
   return {
-    data, 
+    data,
     loading,
     error,
     isStale,
     refetch,
-    invalidateCache,
   };
 }

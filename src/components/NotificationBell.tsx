@@ -6,9 +6,9 @@ import { useNotifications } from "@/hooks/useNotifications";
 
 export default function NotificationBell() {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } =
     useNotifications(open);
-  const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const handleItemClick = useCallback(

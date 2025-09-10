@@ -1,27 +1,35 @@
 import { useMemo } from "react";
-import { collection, query, orderBy, where } from 'firebase/firestore';
+import { collection, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Album } from "@/types";
 import { useCachedFirebaseQuery } from "./useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 
-export function useCachedAlbums(enableRealtime = false) {
+export function useCachedAlbums(enableRealtime: boolean = false) {
   const { user } = useAuth();
 
   const albumsQuery = useMemo(() => {
-    if (!user) return null;
-    return query(
-      collection(db, 'albums'),
-      where('createdBy', '==', user.uid),
-      orderBy('updatedAt', 'desc')
-    );
-  }, [user]);
+    if (!user || !db) {
+      return null;
+    }
 
-  return useCachedFirebaseQuery<Album>(albumsQuery, {
-    cacheKey: 'albums',
+    // Show all family albums, not just user's own albums
+    return query(collection(db, "albums"), orderBy("createdAt", "desc"));
+  }, [user, db]);
+
+  const {
+    data: albums,
+    loading,
+    error,
+    refetch,
+    isStale,
+  } = useCachedFirebaseQuery<Album>(albumsQuery, {
+    cacheKey: `family_albums`,
     cacheTtl: CACHE_CONFIGS.albums.ttl,
-    enableRealtime,
+    enableRealtime: false,
     staleWhileRevalidate: true,
   });
+
+  return { albums, loading, error, refetch, isStale };
 }

@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { DocumentReference, onSnapshot, getDoc, DocumentData } from "firebase/firestore";
+import {
+  DocumentReference,
+  onSnapshot,
+  getDoc,
+  DocumentData,
+} from "firebase/firestore";
 import { firebaseCache } from "@/lib/firebaseCache";
+import { useAuth } from "@/context/AuthContext";
 
 interface UseCachedFirebaseDocOptions {
   cacheKey: string;
@@ -21,6 +27,7 @@ export function useCachedFirebaseDoc<T = DocumentData>(
   docRef: DocumentReference | null,
   options: UseCachedFirebaseDocOptions
 ): UseCachedFirebaseDocResult<T> {
+  const { user } = useAuth();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,41 +38,43 @@ export function useCachedFirebaseDoc<T = DocumentData>(
 
   const {
     cacheKey,
-    cacheTtl = 5 * 60 * 1000, // 5 minutes default
+    cacheTtl = 5 * 60 * 1000,
     enableRealtime = false,
-    staleWhileRevalidate = true
+    staleWhileRevalidate = true,
   } = options;
 
-  // Check if data is cached and valid
   const getCachedData = useCallback(() => {
-    if (!docRef) return null;
+    if (!docRef || !user) return null;
     return firebaseCache.get<T>(cacheKey);
-  }, [cacheKey, docRef]);
+  }, [cacheKey, docRef, user]);
 
-  // Fetch fresh data from Firestore
   const fetchFreshData = useCallback(async (): Promise<T | null> => {
-    if (!docRef) return null;
+    if (!docRef || !user) return null;
 
     try {
-      const docSnap = await  getDoc(docRef);
+      const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const docData = { id: docSnap.id, ...docSnap.data() } as T;
-
-        // Cache the fresh data
+        firebaseCache.set(cacheKey, docData, { ttl: cacheTtl });
         return docData;
       } else {
         return null;
       }
-    } catch (err) {
-      console.error('Error fetching document:', err);
+    } catch (err: any) {
+      if (err.code === "permission-denied") {
+        console.warn(
+          "Permission denied for document - user may not have access"
+        );
+        return null;
+      }
+      console.error("Error fetching document:", err);
       throw err;
     }
-  }, [docRef, cacheKey, cacheTtl]);
+  }, [docRef, cacheKey, cacheTtl, user]);
 
-  // Refetch function
   const refetch = useCallback(async () => {
-    if (!docRef || !isMountedRef.current) return;
-    
+    if (!docRef || !isMountedRef.current || !user) return;
+
     try {
       setError(null);
       setIsStale(false);
@@ -75,18 +84,23 @@ export function useCachedFirebaseDoc<T = DocumentData>(
         setData(freshData);
         setLoading(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (err.code === "permission-denied") {
+          setError(null);
+          setData(null);
+        } else {
+          setError(err.message || "Unknown error");
+        }
         setLoading(false);
       }
     }
-  }, [docRef, fetchFreshData]);
+  }, [docRef, fetchFreshData, user]);
 
   useEffect(() => {
     isMountedRef.current = true;
 
-    if (!docRef) {
+    if (!docRef || !user) {
       setData(null);
       setLoading(false);
       setError(null);
@@ -97,17 +111,14 @@ export function useCachedFirebaseDoc<T = DocumentData>(
       try {
         setError(null);
 
-        // Check cache first
         const cachedData = getCachedData();
         const isCacheValid = cachedData !== null;
 
         if (cachedData && isCacheValid) {
-          // Use cached data immediately
           setData(cachedData);
           setLoading(false);
           setIsStale(false);
 
-          // If staleWhileRevalidate is enabled, fetch fresh data in background
           if (staleWhileRevalidate) {
             setIsStale(true);
             try {
@@ -117,12 +128,11 @@ export function useCachedFirebaseDoc<T = DocumentData>(
                 setIsStale(false);
               }
             } catch (err) {
-              console.error('Background refresh failed:', err);
+              console.error("Background refresh failed:", err);
               setIsStale(false);
             }
           }
         } else {
-          // No valid cache, fetch fresh data
           setLoading(true);
           const freshData = await fetchFreshData();
 
@@ -132,19 +142,16 @@ export function useCachedFirebaseDoc<T = DocumentData>(
           }
         }
 
-        // Set up real-time listener if enabled
-        if (enableRealtime && isMountedRef.current) {
+        // Real-time listener - disabled for now to avoid permission issues
+        if (enableRealtime && isMountedRef.current && false) {
           unsubscribeRef.current = onSnapshot(
             docRef,
             (docSnap) => {
-              if (!isMountedRef.current ) return;
+              if (!isMountedRef.current) return;
 
               if (docSnap.exists()) {
                 const docData = { id: docSnap.id, ...docSnap.data() } as T;
-
-                // Update cache
                 firebaseCache.set(cacheKey, docData, { ttl: cacheTtl });
-
                 setData(docData);
                 setIsStale(false);
               } else {
@@ -155,33 +162,51 @@ export function useCachedFirebaseDoc<T = DocumentData>(
             },
             (err) => {
               if (!isMountedRef.current) return;
-              console.error('Real-time listener error:', err);
-              setError(err.message);
+              console.error("Real-time listener error:", err);
+
+              if (err.code === "permission-denied") {
+                console.warn("Permission denied for real-time listener");
+                setError(null);
+              } else {
+                setError(err.message);
+              }
               setLoading(false);
             }
           );
         }
-
-      } catch (err) {
+      } catch (err: any) {
         if (isMountedRef.current) {
-          setError(err instanceof Error ? err.message : 'Unknown error ');
+          if (err.code === "permission-denied") {
+            setData(null);
+            setError(null);
+          } else {
+            setError(err.message || "Unknown error");
+          }
+          setLoading(false);
         }
       }
     };
 
     loadData();
 
-    // Clean up function
     return () => {
       isMountedRef.current = false;
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
-      } 
+      }
     };
-  }, [docRef, cacheKey, enableRealtime, getCachedData, fetchFreshData, cacheTtl, staleWhileRevalidate]);
+  }, [
+    docRef,
+    cacheKey,
+    enableRealtime,
+    getCachedData,
+    fetchFreshData,
+    cacheTtl,
+    staleWhileRevalidate,
+    user,
+  ]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
@@ -196,6 +221,6 @@ export function useCachedFirebaseDoc<T = DocumentData>(
     loading,
     error,
     isStale,
-    refetch
+    refetch,
   };
 }

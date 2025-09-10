@@ -5,8 +5,9 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
-  getDocs,
+  getDocs, // ✅ Changed from onSnapshot to getDocs
+  updateDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -31,37 +32,43 @@ export function useNotifications(subscribe = false) {
       limit(50)
     );
 
-    let unsub: undefined | (() => void);
-
+    // ✅ ALWAYS use one-time fetch instead of real-time
     async function fetchOnce() {
       setLoading(true);
-      const snap = await getDocs(q);
-      setData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    }
-
-    if (subscribe) {
-      setLoading(true);
-      unsub = onSnapshot(q, (snap) => {
+      try {
+        const snap = await getDocs(q);
         setData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (error: any) {
+        console.error("Error fetching notifications:", error);
+        if (error.code === "permission-denied") {
+          console.warn(
+            "Permission denied for notifications - user may not have access"
+          );
+          setData([]);
+        }
+      } finally {
         setLoading(false);
-      });
-    } else {
-      fetchOnce();
+      }
     }
 
-    return () => {
-      if (unsub) unsub();
-    };
-  }, [subscribe, user?.uid]);
+    fetchOnce();
+  }, [user?.uid]); // Removed subscribe dependency
 
   const markAsRead = useCallback(async (id: string) => {
-    await updateDoc(doc(db, "notifications", id), { read: true });
+    try {
+      await updateDoc(doc(db, "notifications", id), { read: true });
+      // Manually update local state
+      setData((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, read: true } : item))
+      );
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
   }, []);
 
-  const markAllAsRead = useCallback(
-    async (id: string) => {
-      if (!data) return;
+  const markAllAsRead = useCallback(async () => {
+    if (!data) return;
+    try {
       await Promise.all(
         data
           .filter((n: any) => !n.read)
@@ -69,9 +76,12 @@ export function useNotifications(subscribe = false) {
             updateDoc(doc(db, "notifications", n.id), { read: true })
           )
       );
-    },
-    [data]
-  );
+      // Manually update local state
+      setData((prev) => prev.map((item) => ({ ...item, read: true })));
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+    }
+  }, [data]);
 
   return {
     notifications: data,

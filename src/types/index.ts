@@ -1,4 +1,4 @@
-import { Timestamp } from "@firebase/firestore";
+import { Timestamp } from "firebase/firestore";
 
 export interface Photo {
   id: string;
@@ -21,6 +21,7 @@ export interface Album {
   createdByName: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
+  photos?: string [];
   photoCount: number;
 }
 

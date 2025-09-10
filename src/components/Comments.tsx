@@ -7,13 +7,12 @@ import {
   query,
   where,
   orderBy,
-  onSnapshot,
+  getDocs, 
   serverTimestamp,
   doc,
   getDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
-import { sendNotification } from "@/lib/notifications";
 import { notifyCommentOwner } from "@/lib/notifications";
 
 interface Comment {
@@ -46,24 +45,36 @@ export default function Comments({
     setDb(getDb());
   }, []);
 
+  // DISABLE REAL-TIME LISTENER - Use one-time fetch instead
   useEffect(() => {
     if (!photoId || !db) return;
 
-    const commentsQuery = query(
-      collection(db, "comments"),
-      where("photoId", "==", photoId),
-      orderBy("createdAt", "asc")
-    );
+    const fetchComments = async () => {
+      try {
+        const commentsQuery = query(
+          collection(db, "comments"),
+          where("photoId", "==", photoId),
+          orderBy("createdAt", "asc")
+        );
 
-    const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      const commentsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Comment[];
-      setComments(commentsData);
-    });
+        const snapshot = await getDocs(commentsQuery);
+        const commentsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Comment[];
+        setComments(commentsData);
+      } catch (error: any) {
+        console.error("Error fetching comments:", error);
+        if (error.code === "permission-denied") {
+          console.warn(
+            "Permission denied for comments - user may not have access"
+          );
+          setComments([]);
+        }
+      }
+    };
 
-    return () => unsubscribe();
+    fetchComments();
   }, [photoId, db]);
 
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -86,13 +97,26 @@ export default function Comments({
           photoOwnerId,
           commenterName: user.displayName || user.email || "Someone",
           commentText: newComment.trim(),
-          photoTitle: undefined, // pass if available
+          photoTitle: undefined,
           photoUrl:
             typeof window !== "undefined" ? window.location.href : undefined,
         });
       }
 
       setNewComment("");
+
+      // Manually refresh comments after adding
+      const commentsQuery = query(
+        collection(db, "comments"),
+        where("photoId", "==", photoId),
+        orderBy("createdAt", "asc")
+      );
+      const snapshot = await getDocs(commentsQuery);
+      const commentsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Comment[];
+      setComments(commentsData);
     } catch (error) {
       console.error("Error adding comment:", error);
     } finally {

@@ -16,11 +16,9 @@ export async function ensureUserDoc(u: User) {
   if (!snap.exists()) {
     await setDoc(ref, {
       uid: u.uid,
-      email: u.email ?? null, 
-      displayName: u.displayName ?? null,
-      emailNotifications: true,
-      newUploadsNotification: true,
-      commentsNotification: true,
+      email: u.email || "",
+      displayName: u.displayName || "",
+      photoURL: u.photoURL || "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -54,5 +52,5 @@ export async function saveNotificationPrefs(
 ) {
   const db = getDb();
   const ref = doc(db, "users", uid);
-  await updateDoc(ref, { ...prefs, updatedAt: serverTimestamp() }); 
+  await updateDoc(ref, { ...prefs, updatedAt: serverTimestamp() });
 }

@@ -4,11 +4,12 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
-  ReactNode,
+  type ReactNode,
 } from "react";
+import type { User } from "firebase/auth";
 import {
-  User,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -20,9 +21,8 @@ import {
   setPersistence,
   browserSessionPersistence,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
 import { ensureUserDoc } from "@/lib/user";
+import { getClientAuth } from "@/lib/firebase.client";
 
 interface AuthContextProps {
   user: User | null;
@@ -41,98 +41,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Force session-only auth (clears on browser close)
-    setPersistence(auth, browserSessionPersistence).catch((e) =>
-      console.warn("[Auth] setPersistence failed:", e)
-    );
-
-    console.log("🔄 [Auth] initializing…");
-    let listenerFired = false;
-
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (u) => {
-        listenerFired = true;
-        console.log("🔄 [Auth] onAuthStateChanged:", u?.email ?? "null");
-        setUser(u);
-        setLoading(false);
-
-        if (u) {
-          // non-blocking user doc creation
-          try {
-            await ensureUserDoc(u); // <-- creates/patches prefs if missing
-          } catch (e) {
-            console.warn("[Auth] ensureUserDoc failed:", e);
+    let unsub: undefined | (() => void);
+    (async () => {
+      const auth = await getClientAuth();
+      // Session-only persistence (clears on browser close)
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn("[Auth] setPersistence failed:", e);
+      }
+      unsub = onAuthStateChanged(
+        auth,
+        async (u) => {
+          setUser(u);
+          setLoading(false);
+          if (u) {
+            try {
+              await ensureUserDoc(u);
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.warn("[Auth] ensureUserDoc failed:", e);
+            }
           }
+        },
+        (err) => {
+          // eslint-disable-next-line no-console
+          console.error("❌ [Auth] listener error:", err);
+          setLoading(false);
         }
-      },
-      (err) => {
-        console.error("❌ [Auth] listener error:", err);
-        setLoading(false);
-      }
-    );
-
-    // fallback after 5s in case onAuthStateChanged never fires
-    const timeout = setTimeout(() => {
-      if (!listenerFired) {
-        console.warn("⚠️ [Auth] listener never fired, forcing loading→false");
-        setLoading(false);
-      }
-    }, 5000);
-
+      );
+    })();
     return () => {
-      unsubscribe();
-      clearTimeout(timeout);
+      if (unsub) unsub();
     };
   }, []);
 
-  async function signIn(email: string, password: string) {
-    await signInWithEmailAndPassword(auth, email, password);
-  }
-
-  async function signUp(email: string, password: string, name: string) {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    if (cred.user) {
-      await updateProfile(cred.user, { displayName: name });
-      // Create/patch user doc immediately to avoid races
-      try {
-        await ensureUserDoc(cred.user);
-      } catch (e) {
-        console.warn("[Auth] ensureUserDoc after signup failed:", e);
-      }
-    }
-  }
-
-  async function signInWithGoogle() {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  }
-
-  async function logout() {
-    await signOut(auth);
-  }
-
-  async function resetPassword(email: string) {
-    await sendPasswordResetEmail(auth, email);
-  }
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        signUp,
-        signIn,
-        signInWithGoogle,
-        logout,
-        resetPassword,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      signIn: async (email: string, password: string) => {
+        const auth = await getClientAuth();
+        await signInWithEmailAndPassword(auth, email, password);
+      },
+      signUp: async (email: string, password: string, name: string) => {
+        const auth = await getClientAuth();
+        const cred = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        if (cred.user) {
+          await updateProfile(cred.user, { displayName: name });
+          try {
+            await ensureUserDoc(cred.user);
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn("[Auth] ensureUserDoc after signup failed:", e);
+          }
+        }
+      },
+      signInWithGoogle: async () => {
+        const auth = await getClientAuth();
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      },
+      logout: async () => {
+        const auth = await getClientAuth();
+        await signOut(auth);
+      },
+      resetPassword: async (email: string) => {
+        const auth = await getClientAuth();
+        await sendPasswordResetEmail(auth, email);
+      },
+    }),
+    [user, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
