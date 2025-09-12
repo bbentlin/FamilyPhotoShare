@@ -37,6 +37,7 @@ import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 import ImageDebugger from "@/components/ImageDebugger";
 import dynamic from "next/dynamic";
 import { getDb } from "@/lib/firebase";
+import PhotoGridItem from "@/components/PhotoGridItem"; // ✅ Import the new component
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = dynamic(
@@ -66,64 +67,6 @@ const AlbumModalLoadingSpinner = () => (
     </div>
   </div>
 );
-
-function PhotoItem({
-  photo,
-  onClick,
-  onAddToAlbum,
-  priority = false,
-}: {
-  photo: Photo;
-  onClick: () => void;
-  onAddToAlbum: () => void;
-  priority?: boolean;
-}) {
-  return (
-    <div className="group relative aspect-square min-h-[200px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-      {/* Photo container */}
-      <div
-        className="relative w-full h-full cursor-pointer"
-        onClick={onClick} // Direct click handler
-      >
-        {photo.url ? (
-          <PhotoImage
-            src={photo.url}
-            alt={photo.title || "Photo"}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            priority={priority} // <-- forward
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-200 dark:bg-gray-600" />
-        )}
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity pointer-events-none" />
-      </div>
-
-      {/* Add to album button */}
-      <button
-        onClick={onAddToAlbum} // Direct click handler
-        className="absolute top-2 left-2 z-20 bg-black bg-opacity-70 hover:bg-opacity-90 text-white p-2 rounded-md opacity-0 group-hover:opacity-100"
-        style={{ minHeight: "44px", minWidth: "44px" }}
-        title="Add to Album"
-      >
-        <svg
-          className="h-4 w-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H6a2 2 0 00-2 2v2M6 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-          />
-        </svg>
-      </button>
-    </div>
-  );
-}
 
 export default function PhotosPage() {
   const { user, loading } = useAuth();
@@ -353,16 +296,18 @@ export default function PhotosPage() {
                   onLoadMore={loadMore}
                   onPhotoClick={openPhotoModal}
                   onAddToAlbum={openAddToAlbumModal}
+                  // ✅ Use the new component here
                   renderPhoto={({ photo, onClick, onAddToAlbum }) => (
-                    <VirtualPhotoItem
+                    <PhotoGridItem
                       photo={photo}
-                      onClick={onClick}
-                      onAddToAlbum={onAddToAlbum}
+                      priority={false}
+                      onPhotoClick={onClick}
+                      onAddToAlbumClick={onAddToAlbum}
                     />
                   )}
                 />
               ) : (
-                // Standard Grid with Drag and Drop
+                // Standard Grid
                 <InfiniteScrollGrid
                   hasMore={hasMore}
                   loading={photosLoading}
@@ -370,12 +315,13 @@ export default function PhotosPage() {
                 >
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {photos.map((photo, index) => (
-                      <PhotoItem
+                      // ✅ And also use the new component here
+                      <PhotoGridItem
                         key={photo.id}
                         photo={photo}
-                        onClick={() => openPhotoModal(photo, index)}
-                        onAddToAlbum={() => openAddToAlbumModal(photo)}
                         priority={index < 6}
+                        onPhotoClick={() => openPhotoModal(photo, index)}
+                        onAddToAlbumClick={() => openAddToAlbumModal(photo)}
                       />
                     ))}
                   </div>
