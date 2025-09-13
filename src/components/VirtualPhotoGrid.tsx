@@ -20,8 +20,7 @@ interface VirtualPhotoGridProps {
     photo: Photo;
     onClick: () => void;
     onAddToAlbum: () => void;
-    // New, optional hints:
-    loading?: "eager" | "lazy";
+    style: React.CSSProperties; // Style is now required
     priority?: boolean;
   }) => React.ReactNode;
 }
@@ -38,9 +37,8 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
   const [containerSize, setContainerSize] = useState({ width: 0, height: 600 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Calculate grid dimensions
-  const itemSize = 250; // Size of each photo item
-  const gap = 16; // Gap between items
+  const itemSize = 250;
+  const gap = 16;
   const minItemsPerRow = 2;
   const maxItemsPerRow = 8;
 
@@ -52,7 +50,6 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
 
   const rowCount = Math.ceil(photos.length / columnCount) + (hasMore ? 1 : 0);
 
-  // Handle container resize
   useEffect(() => {
     const updateSize = () => {
       if (containerRef.current) {
@@ -66,7 +63,6 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  // Check if item is loaded
   const isItemLoaded = useCallback(
     (index: number) => {
       const rowIndex = Math.floor(index / columnCount);
@@ -76,44 +72,44 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
     [photos.length, columnCount]
   );
 
-  // Grid cell renderer
   const Cell = useCallback(
     ({ columnIndex, rowIndex, style }: any) => {
       const photoIndex = rowIndex * columnCount + columnIndex;
       const photo = photos[photoIndex];
 
-      // Loading cell
+      // ✅ THIS IS THE FIX: The style from the grid library now includes padding.
+      // We apply it directly to the item, removing the wrapper div that was breaking clicks.
+      const itemStyle = {
+        ...style,
+        padding: `${gap / 2}px`,
+      };
+
       if (!photo && hasMore) {
         return (
-          <div style={style} className="p-2">
+          <div style={itemStyle}>
             <div className="w-full h-full bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
           </div>
         );
       }
 
-      // Empty cell
       if (!photo) {
-        return <div style={style} />;
+        return <div style={itemStyle} />;
       }
 
       const isAboveTheFold = rowIndex <= 2;
 
-      return (
-        <div style={style} className="p-2">
-          {renderPhoto({
-            photo,
-            onClick: () => onPhotoClick(photo, photoIndex),
-            onAddToAlbum: () => onAddToAlbum(photo),
-            loading: "eager", // <-- critical for Edge in scroll containers
-            priority: isAboveTheFold, // boost first few rows
-          })}
-        </div>
-      );
+      // The renderPhoto function now receives the final style directly.
+      return renderPhoto({
+        photo,
+        onClick: () => onPhotoClick(photo, photoIndex),
+        onAddToAlbum: () => onAddToAlbum(photo),
+        style: itemStyle,
+        priority: isAboveTheFold,
+      });
     },
     [photos, columnCount, hasMore, renderPhoto, onPhotoClick, onAddToAlbum]
   );
 
-  // Load more items when scrolling near the end
   const loadMoreItems = useCallback(async () => {
     if (!loading && hasMore) {
       onLoadMore();
@@ -147,51 +143,25 @@ const VirtualPhotoGrid: React.FC<VirtualPhotoGridProps> = ({
             rowHeight={itemSize + gap}
             width={containerSize.width}
             overscanRowCount={2}
-            overscanColumnCount={1}
             onItemsRendered={({
               visibleRowStartIndex,
               visibleRowStopIndex,
-              visibleColumnStartIndex,
-              visibleColumnStopIndex,
             }) => {
               onItemsRendered({
-                overscanStartIndex:
-                  visibleRowStartIndex * columnCount + visibleColumnStartIndex,
+                overscanStartIndex: visibleRowStartIndex * columnCount,
                 overscanStopIndex:
-                  visibleRowStopIndex * columnCount + visibleColumnStopIndex,
-                visibleStartIndex:
-                  visibleRowStartIndex * columnCount + visibleColumnStartIndex,
+                  visibleRowStopIndex * columnCount + (columnCount - 1),
+                visibleStartIndex: visibleRowStartIndex * columnCount,
                 visibleStopIndex:
-                  visibleRowStopIndex * columnCount + visibleColumnStopIndex,
+                  visibleRowStopIndex * columnCount + (columnCount - 1),
               });
             }}
-            style={{
-              overflowX: "hidden", // Prevent horizontal scroll
-            }}
+            style={{ overflowX: "hidden" }}
           >
             {Cell}
           </Grid>
         )}
       </InfiniteLoader>
-
-      {/* Loading indicator */}
-      {loading && (
-        <div className="flex justify-center items-center py-4">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-600 dark:text-gray-400">
-            Loading more photos...
-          </span>
-        </div>
-      )}
-
-      {/* End indicator */}
-      {!hasMore && photos.length > 0 && (
-        <div className="text-center py-4">
-          <span className="text-gray-500 dark:text-gray-400 text-sm">
-            All photos loaded ({photos.length} total)
-          </span>
-        </div>
-      )}
     </div>
   );
 };

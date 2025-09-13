@@ -65,7 +65,8 @@ function SortablePhoto({
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style}>
+    // ✅ Add the `relative` class here
+    <div ref={setNodeRef} style={style} className="relative">
       <PhotoGridItem
         photo={photo}
         priority={index < 6}

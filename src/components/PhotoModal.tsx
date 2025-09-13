@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, lazy, Suspense } from "react";
+import React, { useEffect, useRef, useCallback, lazy, Suspense } from "react";
 import { Photo } from "@/types";
 import SafeImage from "./SafeImage";
 import PhotoImage from "./PhotoImage";
@@ -11,13 +11,13 @@ interface PhotoModalProps {
   photo: Photo;
   isOpen: boolean;
   onClose: () => void;
-  onPrevious?: () => void;
-  onNext?: () => void;
-  hasPrevious?: boolean;
-  hasNext?: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  hasPrevious: boolean;
+  hasNext: boolean;
 }
 
-export default function PhotoModal({
+const PhotoModal: React.FC<PhotoModalProps> = ({
   photo,
   isOpen,
   onClose,
@@ -25,53 +25,103 @@ export default function PhotoModal({
   onNext,
   hasPrevious,
   hasNext,
-}: PhotoModalProps) {
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
+}) => {
+  const modalRef = useRef<HTMLDivElement>(null);
 
-  // Reset image loaded state when photo changes
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft" && hasPrevious) onPrevious();
+      if (event.key === "ArrowRight" && hasNext) onNext();
+    },
+    [onClose, onPrevious, onNext, hasPrevious, hasNext]
+  );
+
   useEffect(() => {
-    setIsImageLoaded(false);
-  }, [photo]);
-
-  // Handle keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      } else if (e.key === "ArrowLeft" && hasPrevious) {
-        onPrevious?.();
-      } else if (e.key === "ArrowRight" && hasNext) {
-        onNext?.();
-      }
-    };
-
     if (isOpen) {
       document.addEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "hidden";
+      const originalPath = window.location.pathname;
+      const newUrl = `/photos/${photo.id}`;
+
+      // replaceState updates the URL without adding a new entry to the browser history.
+      // This stops the back button from behaving incorrectly.
+      window.history.replaceState(
+        { ...window.history.state, as: newUrl, url: newUrl },
+        "",
+        newUrl
+      );
+
+      return () => {
+        document.removeEventListener("keydown", handleKeyDown);
+        // On close, replace the state back to the original path.
+        window.history.replaceState(
+          { ...window.history.state, as: originalPath, url: originalPath },
+          "",
+          originalPath
+        );
+      };
     }
+  }, [isOpen, photo.id, handleKeyDown]);
 
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen, hasPrevious, hasNext, onClose, onPrevious, onNext]);
-
-  if (!isOpen || !photo) return null;
+  if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4"
+      ref={modalRef}
+      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"
       onClick={onClose}
     >
       <div
-        className="relative bg-white dark:bg-gray-900 rounded-lg overflow-hidden w-full max-w-4xl h-full max-h-[90vh]"
+        className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-full h-full max-w-6xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
+        <div className="relative w-full md:w-3/4 h-1/2 md:h-full bg-black flex items-center justify-center">
+          <PhotoImage
+            src={photo.url}
+            alt={photo.title || "Photo"}
+            className="object-contain"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 75vw"
+          />
+        </div>
+        <div className="w-full md:w-1/4 h-1/2 md:h-full flex flex-col p-4 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
+            {photo.title}
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Uploaded on {new Date(photo.createdAt).toLocaleDateString()}
+          </p>
+          <div className="flex-grow">
+            {/* COMMENTS always visible */}
+            <Suspense
+              fallback={
+                <div className="p-4 text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Loading comments...
+                  </p>
+                </div>
+              }
+            >
+              <Comments
+                photoId={photo.id}
+                photoOwnerId={photo.createdBy}
+                photoOwnerName={photo.uploadedByName || "Unknown"}
+              />
+            </Suspense>
+          </div>
+        </div>
+      </div>
+
+      {hasPrevious && (
         <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all"
-          aria-label="Close photo"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrevious();
+          }}
+          className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/75 transition-all"
+          aria-label="Previous photo"
         >
           <svg
             className="h-6 w-6"
@@ -83,97 +133,56 @@ export default function PhotoModal({
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
+              d="M15 19l-7-7 7-7"
             />
           </svg>
         </button>
-
-        {/* Previous Button */}
-        {hasPrevious && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onPrevious?.();
-            }}
-            className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-all"
-            aria-label="Previous photo"
+      )}
+      {hasNext && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/75 transition-all"
+          aria-label="Next photo"
+        >
+          <svg
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
-        )}
-
-        {/* Next Button */}
-        {hasNext && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onNext?.();
-            }}
-            className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-3 rounded-full transition-all"
-            aria-label="Next photo"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
-        )}
-
-        {/* Layout Container */}
-        <div className="flex flex-col w-full h-full">
-          {/* Image area now always 75% height */}
-          <div className="relative flex items-center justify-center transition-all duration-300 w-full min-h-[400px] h-3/4">
-            <PhotoImage
-              src={photo.url}
-              alt={photo.title || "Photo"}
-              className="object-contain"
-              fill
-              priority
-              sizes="100vw"
-              edgeWidth={1600}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
             />
-          </div>
-
-          {/* COMMENTS always visible */}
-          <Suspense
-            fallback={
-              <div className="p-4 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">
-                  Loading comments...
-                </p>
-              </div>
-            }
-          >
-            <Comments
-              photoId={photo.id}
-              photoOwnerId={photo.createdBy}
-              photoOwnerName={photo.uploadedByName || "Unknown"}
-            />
-          </Suspense>
-        </div>
-      </div>
+          </svg>
+        </button>
+      )}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/75 transition-all"
+        aria-label="Close photo modal"
+      >
+        <svg
+          className="h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
     </div>
   );
-}
+};
+
+export default PhotoModal;

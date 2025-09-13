@@ -9,6 +9,7 @@ interface VirtualPhotoItemProps {
   onClick: () => void;
   onAddToAlbum: () => void;
   style?: React.CSSProperties;
+  priority?: boolean;
 }
 
 const VirtualPhotoItem = React.memo(function VirtualPhotoItem({
@@ -16,16 +17,17 @@ const VirtualPhotoItem = React.memo(function VirtualPhotoItem({
   onClick,
   onAddToAlbum,
   style,
+  priority,
 }: VirtualPhotoItemProps) {
-  // The PhotoGridItem component should be the root element returned,
-  // and it should receive the style prop directly from the virtualizer.
   return (
-    <PhotoGridItem
-      photo={photo}
-      onPhotoClick={onClick}
-      onAddToAlbumClick={onAddToAlbum}
-      style={style} 
-    />
+    <div style={style} className="relative">
+      <PhotoGridItem
+        photo={photo}
+        onPhotoClick={onClick}
+        onAddToAlbumClick={onAddToAlbum}
+        priority={priority}
+      />
+    </div>
   );
 });
 
