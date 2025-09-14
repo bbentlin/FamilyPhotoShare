@@ -460,9 +460,7 @@ function UploadPageContent() {
               setShowAlbumModal(false);
               setSelectedFileForAlbums(null);
             }}
-            albums={albums || []}
-            selectedAlbums={selectedFileForAlbums.selectedAlbums}
-            onSelectionChange={handleAlbumsSelected}
+            onAlbumsSelected={handleAlbumsSelected}
             title={`Select Albums for "${selectedFileForAlbums.title}"`}
           />
         )}

@@ -81,16 +81,19 @@ function ModalPhotoItem({
   );
 }
 
-interface AlbumSelectorModalProps {
+export interface AlbumSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddPhotos: (photos: Photo[]) => void;
+  title?: string;
+  // For flows selecting photos:
+  onAddPhotos?: (photos: Photo[]) => void;
   existingPhotoIds?: string[];
 }
 
 export default function AlbumSelectorModal({
   isOpen,
   onClose,
+  title,
   onAddPhotos,
   existingPhotoIds = [],
 }: AlbumSelectorModalProps) {
