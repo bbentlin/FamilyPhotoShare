@@ -32,6 +32,7 @@ import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
 import { CACHE_CONFIGS } from "@/lib/firebaseCache";
 import { addPhotoToAlbums } from "@/lib/albums";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+import { toast } from "react-hot-toast";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 
@@ -187,16 +188,25 @@ export default function DashboardPage() {
 
   const handleConfirmAlbums = async (albumIds: string[]) => {
     if (!selectedPhotoForAlbum) return;
+
+    const toastId = toast.loading("Adding photo to album(s)...");
     try {
       await addPhotoToAlbums(selectedPhotoForAlbum.id, albumIds, {
         addedBy: user?.uid,
       });
+
       if (user?.uid) {
         CacheInvalidationManager.invalidatePhotos(user.uid);
         CacheInvalidationManager.invalidateAlbums(user.uid);
+        albumIds.forEach((id) =>
+          CacheInvalidationManager.invalidateAlbumPhotos(id)
+        );
       }
+
+      toast.success("Photo added to album(s).", { id: toastId });
     } catch (e) {
       console.error("Failed to add photo to albums:", e);
+      toast.error("Failed to add photo to album(s).", { id: toastId });
     } finally {
       setShowAddToAlbumModal(false);
       setSelectedPhotoForAlbum(null);

@@ -38,6 +38,8 @@ import ImageDebugger from "@/components/ImageDebugger";
 import dynamic from "next/dynamic";
 import { getDb } from "@/lib/firebase";
 import PhotoGridItem from "@/components/PhotoGridItem"; // ✅ Import the new component
+import { addPhotoToAlbums } from "@/lib/albums";
+import { toast } from "react-hot-toast";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = dynamic(
@@ -179,6 +181,30 @@ export default function PhotosPage() {
       refresh(); // Use your existing refresh function
     }
   }, [user, refresh]);
+
+  const handleConfirmAlbums = useCallback(
+    async (albumIds: string[]) => {
+      if (!selectedPhotoForAlbum || !user) return;
+      const toastId = toast.loading("Adding photo to album(s)...");
+      try {
+        await addPhotoToAlbums(selectedPhotoForAlbum.id, albumIds, {
+          addedBy: user.uid,
+        });
+        CacheInvalidationManager.invalidatePhotos(user.uid);
+        CacheInvalidationManager.invalidateAlbums(user.uid);
+        albumIds.forEach((id) =>
+          CacheInvalidationManager.invalidateAlbumPhotos(id)
+        );
+        toast.success("Photo added to album(s).", { id: toastId });
+      } catch (e) {
+        console.error("Failed to add photo to albums:", e);
+        toast.error("Failed to add photo to album(s).", { id: toastId });
+      } finally {
+        closeAddToAlbumModal();
+      }
+    },
+    [selectedPhotoForAlbum, user, closeAddToAlbumModal]
+  );
 
   // Early returns
   if (error) {
@@ -380,7 +406,7 @@ export default function PhotosPage() {
             isOpen={true}
             photo={selectedPhotoForAlbum}
             onClose={closeAddToAlbumModal}
-            db={getDb()}
+            onConfirm={handleConfirmAlbums} // <-- wire up saving
           />
         )}
       </div>

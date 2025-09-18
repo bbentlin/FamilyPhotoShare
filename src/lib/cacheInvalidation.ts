@@ -43,6 +43,12 @@ export class CacheInvalidationManager {
         break;
     }
   }
+
+  // Invalidate album photos lists (keys like "album_photos_<id>")
+  static invalidateAlbumPhotos(albumId?: string) {
+    const key = albumId ? `album_photos_${albumId}` : `album_photos_`;
+    firebaseCache.invalidate(key);
+  }
 }
 
 // Hook to use in components
