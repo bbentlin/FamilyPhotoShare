@@ -4,6 +4,8 @@ import {
   onSnapshot,
   getDoc,
   DocumentData,
+  DocumentSnapshot,
+  FirestoreError,
 } from "firebase/firestore";
 import { firebaseCache } from "@/lib/firebaseCache";
 import { useAuth } from "@/context/AuthContext";
@@ -142,15 +144,20 @@ export function useCachedFirebaseDoc<T = DocumentData>(
           }
         }
 
-        // Real-time listener - disabled for now to avoid permission issues
-        if (enableRealtime && isMountedRef.current && false) {
+        // Real-time listener (only if explicitly enabled AND we have a docRef)
+        if (enableRealtime && docRef) {
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+          }
           unsubscribeRef.current = onSnapshot(
-            docRef,
-            (docSnap) => {
+            docRef as DocumentReference<DocumentData>,
+            (docSnap: DocumentSnapshot<DocumentData>) => {
               if (!isMountedRef.current) return;
-
               if (docSnap.exists()) {
-                const docData = { id: docSnap.id, ...docSnap.data() } as T;
+                const docData = {
+                  id: docSnap.id,
+                  ...docSnap.data(),
+                } as T;
                 firebaseCache.set(cacheKey, docData, { ttl: cacheTtl });
                 setData(docData);
                 setIsStale(false);
@@ -160,12 +167,10 @@ export function useCachedFirebaseDoc<T = DocumentData>(
               setLoading(false);
               setError(null);
             },
-            (err) => {
+            (err: FirestoreError) => {
               if (!isMountedRef.current) return;
               console.error("Real-time listener error:", err);
-
               if (err.code === "permission-denied") {
-                console.warn("Permission denied for real-time listener");
                 setError(null);
               } else {
                 setError(err.message);

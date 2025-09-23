@@ -7,7 +7,7 @@ import {
   query,
   where,
   orderBy,
-  getDocs, 
+  getDocs,
   serverTimestamp,
   doc,
   getDoc,
@@ -100,6 +100,8 @@ export default function Comments({
           photoTitle: undefined,
           photoUrl:
             typeof window !== "undefined" ? window.location.href : undefined,
+          photoId: photoId,
+          actorId: user.uid, // ✅ supply actor
         });
       }
 

@@ -52,7 +52,28 @@ export function useNotifications(subscribe = false) {
     }
 
     fetchOnce();
-  }, [user?.uid]); // Removed subscribe dependency
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (subscribe) {
+      (async () => {
+        try {
+          const snap = await getDocs(
+            query(
+              collection(db, "notifications"),
+              where("userId", "==", user.uid),
+              orderBy("createdAt", "desc"),
+              limit(50)
+            )
+          );
+          setData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        } catch (e) {
+          // keep silent
+        }
+      })();
+    }
+  }, [subscribe, user?.uid]);
 
   const markAsRead = useCallback(async (id: string) => {
     try {

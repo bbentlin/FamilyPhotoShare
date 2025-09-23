@@ -90,7 +90,9 @@ const PhotoModal: React.FC<PhotoModalProps> = ({
             {photo.title}
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Uploaded on {new Date(photo.createdAt).toLocaleDateString()}
+            Uploaded on {(photo.createdAt as any)?.toDate
+              ? (photo.createdAt as any).toDate().toLocaleDateString()
+              : new Date(photo.createdAt as any).toLocaleDateString()}
           </p>
           <div className="flex-grow">
             {/* COMMENTS always visible */}
@@ -106,8 +108,15 @@ const PhotoModal: React.FC<PhotoModalProps> = ({
             >
               <Comments
                 photoId={photo.id}
-                photoOwnerId={photo.createdBy}
-                photoOwnerName={photo.uploadedByName || "Unknown"}
+                photoOwnerId={
+                  // Prefer createdBy if present; fallback to uploadedBy
+                  (photo as any).createdBy || (photo as any).uploadedBy
+                }
+                photoOwnerName={
+                  photo.uploadedByName ||
+                  (photo as any).createdByName ||
+                  "Unknown"
+                }
               />
             </Suspense>
           </div>

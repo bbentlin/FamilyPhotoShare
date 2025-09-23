@@ -69,17 +69,25 @@ function SortablePhoto({
     transition,
     isDragging,
   } = useSortable({ id: photo.id });
+
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative cursor-grab active:cursor-grabbing"
+      {...attributes}
+      {...listeners}
+    >
       <PhotoGridItem
         photo={photo}
         priority={index < 6}
         onPhotoClick={() => openPhotoModal(photo, index)}
         onAddToAlbumClick={() => openAddToAlbumModal(photo)}
-        dndAttributes={attributes}
-        dndListeners={listeners}
+        // dnd props not needed on child when wrapper is the draggable
+        // dndAttributes={attributes}
+        // dndListeners={listeners}
         isDragging={isDragging}
       />
     </div>
@@ -148,10 +156,13 @@ export default function DashboardPage() {
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = photos.findIndex((p) => p.id === active.id);
-    const newIndex = photos.findIndex((p) => p.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    setPhotos(arrayMove(photos, oldIndex, newIndex));
+
+    setPhotos((prev) => {
+      const oldIndex = prev.findIndex((p) => p.id === active.id);
+      const newIndex = prev.findIndex((p) => p.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
   };
 
   const openPhotoModal = (photo: Photo, index: number) => {

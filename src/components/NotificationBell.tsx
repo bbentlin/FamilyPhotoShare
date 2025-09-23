@@ -15,7 +15,7 @@ export default function NotificationBell() {
     async (n: any) => {
       if (!n.read && n.id) await markAsRead(n.id);
       setOpen(false);
-      if (n.url) router.push(n.url);
+      if (n.url || n.actionUrl) router.push(n.url || n.actionUrl);
     },
     [markAsRead, router]
   );

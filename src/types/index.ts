@@ -6,8 +6,10 @@ export interface Photo {
   title?: string;
   description?: string;
   uploadedByName?: string;
+  uploadedBy?: string; // ✅ add
+  createdBy?: string; // keep optional during transition
+  createdByName?: string;
   createdAt: Timestamp | Date;
-  createdBy: string;
   albums?: string[];
 }
 
@@ -21,7 +23,7 @@ export interface Album {
   createdByName: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
-  photos?: string [];
+  photos?: string[];
   photoCount: number;
 }
 

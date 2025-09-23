@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { Photo, Album } from "@/types";
+import type { Album, Photo } from "@/types";
 import SafeImage from "./SafeImage";
 
 interface SetCoverPhotoModalProps {
@@ -11,7 +11,7 @@ interface SetCoverPhotoModalProps {
   photos: Photo[];
   isOpen: boolean;
   onClose: () => void;
-  onPhotoSelected: (photoId: string) => void;
+  onPhotoSelected: (photoId: string) => void; // photoId here is actually URL per your usage
 }
 
 export default function SetCoverPhotoModal({
@@ -33,8 +33,8 @@ export default function SetCoverPhotoModal({
     try {
       const albumRef = doc(db, "albums", album.id);
       await updateDoc(albumRef, {
-        coverPhoto: selectedPhoto || null, // Allow null setting for no cover
-        updatedAt: new Date(),
+        coverPhoto: selectedPhoto || null,
+        updatedAt: serverTimestamp(),
       });
 
       onPhotoSelected(selectedPhoto);
@@ -47,10 +47,6 @@ export default function SetCoverPhotoModal({
     }
   };
 
-  const handlePhotoSelect = (photo: Photo) => {
-    setSelectedPhoto(photo.url);
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -61,10 +57,7 @@ export default function SetCoverPhotoModal({
         </h3>
 
         <p className="text-gray-600 mb-6">
-          Choose a &quot;cover photo&quot; for this album
-          <br />
-          The selected photo will be used as the &quot;cover photo&quot; for the
-          album
+          Choose a cover photo for this album
         </p>
 
         {/* No Cover Option */}
@@ -78,19 +71,6 @@ export default function SetCoverPhotoModal({
             }`}
           >
             <div className="flex items-center justify-center">
-              <svg
-                className="h-8 w-8 text-gray-400 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
               <span
                 className={`font-medium ${
                   selectedPhoto === "" ? "text-blue-700" : "text-gray-600"
@@ -103,93 +83,45 @@ export default function SetCoverPhotoModal({
         </div>
 
         {photos.length > 0 ? (
-          <>
-            {/* Divider */}
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">
-                  or choose from photos
-                </span>
-              </div>
-            </div>
-
-            {/* Photos Grid */}
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-6">
-              {photos.map((photo, i) => (
-                <div
-                  key={photo.id}
-                  className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
-                    selectedPhoto === photo.url
-                      ? "border-blue-500 ring-2 ring-blue-200"
-                      : "border-transparent hover:border-gray-300"
-                  }`}
-                >
-                  <SafeImage
-                    src={photo.url}
-                    alt={photo.title || "Photo"}
-                    className="w-full h-full object-cover"
-                    loading={i < 6 ? "eager" : "lazy"} // <-- eager for first row
-                    onClick={() => setSelectedPhoto(photo.url)}
-                  />
-
-                  {/* Selection indicator */}
-                  {selectedPhoto === photo.url && (
-                    <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
-                      <div className="bg-blue-600 text-white rounded-full p-1">
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </div>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-6">
+            {photos.map((photo, i) => (
+              <button
+                key={photo.id}
+                type="button"
+                className={`group relative aspect-square min-h-[120px] rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${
+                  selectedPhoto === photo.url
+                    ? "border-blue-500 ring-2 ring-blue-200"
+                    : "border-transparent hover:border-gray-300"
+                }`}
+                onClick={() => setSelectedPhoto(photo.url)}
+              >
+                <SafeImage
+                  src={photo.url}
+                  alt={photo.title || "Photo"}
+                  className="w-full h-full object-cover"
+                  loading={i < 6 ? "eager" : "lazy"}
+                />
+                {selectedPhoto === photo.url && (
+                  <div className="absolute inset-0 bg-blue-500 bg-opacity-20 flex items-center justify-center">
+                    <div className="bg-blue-600 text-white rounded-full p-1">
+                      ✓
                     </div>
-                  )}
-
-                  {/* Current cover indicator */}
-                  {photo.url === album?.coverPhoto && (
-                    <div className="absolute top-1 left-1 bg-green-600 text-white px-2 py-1 rounded text-xs font-medium">
-                      Current
-                    </div>
-                  )}
-
-                  {/* Photo title on hover */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {photo.title || "Untitled Photo"}
                   </div>
-                </div>
-              ))}
-            </div>
-          </>
+                )}
+                {photo.url === album?.coverPhoto && (
+                  <div className="absolute top-1 left-1 bg-green-600 text-white px-2 py-1 rounded text-xs font-medium">
+                    Current
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
         ) : (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
+            No photos available.
           </div>
         )}
 
-        {/* Action Buttons */}
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={onClose}
@@ -198,27 +130,20 @@ export default function SetCoverPhotoModal({
           >
             Cancel
           </button>
-
           <button
             onClick={handleUpdateCover}
             disabled={selectedPhoto === album?.coverPhoto || isUpdating}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 transition-colors"
           >
-            {isUpdating ? (
-              <div className="flex items-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Updating...
-              </div>
-            ) : selectedPhoto === "" ? (
-              "Remove Cover"
-            ) : (
-              "Set as Cover"
-            )}
+            {isUpdating
+              ? "Updating..."
+              : selectedPhoto === ""
+              ? "Remove Cover"
+              : "Set as Cover"}
           </button>
         </div>
       </div>
 
-      {/* Click outside to close */}
       <div
         className="absolute inset-0 -z-10"
         onClick={() => !isUpdating && onClose()}

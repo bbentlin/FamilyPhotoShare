@@ -131,7 +131,7 @@ export default function AlbumSelectorModal({
 
   const handleAddClick = useCallback(() => {
     if (selectedPhotos.length > 0) {
-      onAddPhotos(selectedPhotos);
+      onAddPhotos?.(selectedPhotos); // use optional chaining
     }
   }, [selectedPhotos, onAddPhotos]);
 

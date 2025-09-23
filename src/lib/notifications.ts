@@ -199,11 +199,11 @@ export async function notifyNewUploadSubscribers(params: {
           message: `${uploaderName} uploaded ${
             photoTitle ? `"${photoTitle}"` : "a new photo"
           }`,
-          actionUrl: photoUrl || "/photos",
+          url: photoUrl || "/photos", // ✅ rename actionUrl -> url
+          photoId: photoId,
+          uploaderId: uploaderId,
           read: false,
           createdAt: serverTimestamp(),
-          uploaderId: uploaderId,
-          photoId: photoId,
         });
       } catch (error: any) {
         console.error(

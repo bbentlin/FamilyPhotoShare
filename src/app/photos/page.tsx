@@ -10,36 +10,31 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import Link from "next/link";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import ThemeToggle from "@/components/ThemeToggle";
 import { Photo } from "@/types";
 import { usePhotosWithPagination } from "@/hooks/usePhotosWithPagination";
+import { toast } from "react-hot-toast";
+import { db } from "@/lib/firebase";
+import {
+  addDoc,
+  arrayUnion,
+  collection,
+  doc,
+  orderBy,
+  query,
+  serverTimestamp,
+  writeBatch,
+} from "firebase/firestore";
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+import dynamic from "next/dynamic";
+import ImageDebugger from "@/components/ImageDebugger";
+import ThemeToggle from "@/components/ThemeToggle";
 import PhotoImage from "@/components/PhotoImage";
 import VirtualPhotoGrid from "@/components/VirtualPhotoGrid";
 import VirtualPhotoItem from "@/components/VirtualPhotoItem";
-import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
-import ImageDebugger from "@/components/ImageDebugger";
-import dynamic from "next/dynamic";
-import { getDb } from "@/lib/firebase";
 import PhotoGridItem from "@/components/PhotoGridItem"; // ✅ Import the new component
-import { addPhotoToAlbums } from "@/lib/albums";
-import { toast } from "react-hot-toast";
+import Link from "next/link"; // ✅ add
+import { arrayMove } from "@dnd-kit/sortable"; // ✅ add
+import { addPhotoToAlbums } from "@/lib/albums"; // ✅ add
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = dynamic(
@@ -48,6 +43,10 @@ const AddToAlbumModal = dynamic(
 );
 const InfiniteScrollGrid = lazy(
   () => import("@/components/InfiniteScrollGrid")
+);
+const AlbumSelectorModal = dynamic(
+  () => import("@/components/AlbumSelectorModal").then((m) => m.default),
+  { ssr: false, loading: () => <AlbumModalLoadingSpinner /> }
 );
 
 const ModalLoadingSpinner = () => (
@@ -82,6 +81,7 @@ export default function PhotosPage() {
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
   const [viewMode, setViewMode] = useState<"virtual" | "grid">("virtual"); // <-- Default is "virtual"
+  const [showCreateFromPhotos, setShowCreateFromPhotos] = useState(false);
 
   // optional: persist view mode across visits
   useEffect(() => {
@@ -206,6 +206,74 @@ export default function PhotosPage() {
     [selectedPhotoForAlbum, user, closeAddToAlbumModal]
   );
 
+  // Create album from selected photos
+  const handleCreateAlbumFromPhotos = useCallback(
+    async (selectedPhotos: Photo[]) => {
+      try {
+        if (!user) {
+          toast.error("You must be signed in.");
+          return;
+        }
+        if (!selectedPhotos || selectedPhotos.length === 0) {
+          toast("Select at least one photo.");
+          return;
+        }
+
+        const title = window.prompt(
+          `Album title for ${selectedPhotos.length} photo${
+            selectedPhotos.length > 1 ? "s" : ""
+          }:`,
+          "New Album"
+        );
+        if (!title || !title.trim()) {
+          toast("Album creation cancelled.");
+          return;
+        }
+
+        const toastId = toast.loading("Creating album...");
+        // 1) Create album
+        const albumRef = await addDoc(collection(db, "albums"), {
+          title: title.trim(),
+          description: "",
+          isPublic: false,
+          createdBy: user.uid,
+          createdByName: user.displayName || user.email || "Unknown",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          photoCount: selectedPhotos.length,
+          coverPhoto: selectedPhotos[0]?.url ?? null,
+          photos: [], // optional legacy field
+          sharedWith: [],
+          tags: [],
+        });
+
+        // 2) Link photos to the album (batch)
+        const batch = writeBatch(db);
+        selectedPhotos.forEach((p) => {
+          const pRef = doc(db, "photos", p.id);
+          batch.update(pRef, { albums: arrayUnion(albumRef.id) });
+        });
+        // touch album updatedAt
+        batch.update(albumRef, { updatedAt: serverTimestamp() });
+        await batch.commit();
+
+        // 3) Invalidate caches
+        CacheInvalidationManager.invalidateAlbums(user.uid);
+        CacheInvalidationManager.invalidateAlbumPhotos(albumRef.id);
+        CacheInvalidationManager.invalidatePhotos(user.uid);
+
+        toast.success("Album created.", { id: toastId });
+        setShowCreateFromPhotos(false);
+        // Optional: navigate to the new album
+        // router.push(`/albums/${albumRef.id}`);
+      } catch (e) {
+        console.error("Create album from photos failed:", e);
+        toast.error("Failed to create album.");
+      }
+    },
+    [user]
+  );
+
   // Early returns
   if (error) {
     return (
@@ -251,7 +319,7 @@ export default function PhotosPage() {
             </div>
 
             {/* Sort Controls */}
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-0 flex gap-2">
               <select
                 value={sortBy}
                 onChange={(e) => {
@@ -267,6 +335,15 @@ export default function PhotosPage() {
                 <option value="oldest">Oldest First</option>
                 <option value="title">By Title</option>
               </select>
+
+              {/* Create album from photos button */}
+              <button
+                type="button"
+                onClick={() => setShowCreateFromPhotos(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Create album from photos
+              </button>
             </div>
           </div>
 
@@ -303,13 +380,6 @@ export default function PhotosPage() {
                       Standard
                     </button>
                   </div>
-
-                  <Link
-                    href="/albums/new"
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                  >
-                    Create Album from Photos →
-                  </Link>
                 </div>
               </div>
 
@@ -400,13 +470,23 @@ export default function PhotosPage() {
           </Suspense>
         )}
 
-        {/* Add to Album Modal */}
+        {/* Add to Album Modal (single) */}
         {showAddToAlbumModal && selectedPhotoForAlbum && (
           <AddToAlbumModal
             isOpen={true}
             photo={selectedPhotoForAlbum}
             onClose={closeAddToAlbumModal}
-            onConfirm={handleConfirmAlbums} // <-- wire up saving
+            onConfirm={handleConfirmAlbums}
+          />
+        )}
+
+        {/* Create Album From Photos selector */}
+        {showCreateFromPhotos && (
+          <AlbumSelectorModal
+            isOpen={true}
+            onClose={() => setShowCreateFromPhotos(false)}
+            onAddPhotos={handleCreateAlbumFromPhotos}
+            existingPhotoIds={[]} // none blocked
           />
         )}
       </div>
