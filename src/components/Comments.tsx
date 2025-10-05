@@ -45,7 +45,6 @@ export default function Comments({
     setDb(getDb());
   }, []);
 
-  // DISABLE REAL-TIME LISTENER - Use one-time fetch instead
   useEffect(() => {
     if (!photoId || !db) return;
 
@@ -94,9 +93,9 @@ export default function Comments({
       // Send notification if comment is not by photo owner
       if (user.uid !== photoOwnerId) {
         notifyCommentOwner({
-          photoOwnerId,
+          ownerId: photoOwnerId,
+          ownerEmail: undefined, // optional
           commenterName: user.displayName || user.email || "Someone",
-          commentText: newComment.trim(),
           photoTitle: undefined,
           photoUrl:
             typeof window !== "undefined" ? window.location.href : undefined,

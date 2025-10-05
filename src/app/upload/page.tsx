@@ -189,6 +189,7 @@ function UploadPageContent() {
             );
           }
 
+          // After linking albums:
           await notifyNewUploadSubscribers({
             uploaderId: currentUser.uid,
             uploaderName:
@@ -196,7 +197,7 @@ function UploadPageContent() {
             photoTitle: uploadingFile.title,
             photoUrl: `/photos/${photoRef.id}`,
             photoId: photoRef.id,
-          });
+          }).catch(() => {});
 
           toast.success(`"${uploadingFile.title}" uploaded successfully!`, {
             id: startToast,

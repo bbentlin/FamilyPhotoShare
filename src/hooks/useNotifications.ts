@@ -1,114 +1,51 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase";
 import {
   collection,
+  onSnapshot,
+  orderBy,
   query,
   where,
-  orderBy,
   limit,
-  getDocs, // ✅ Changed from onSnapshot to getDocs
   updateDoc,
   doc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
-import type { InAppNotification } from "@/lib/notifications";
 
-export function useNotifications(subscribe = false) {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useNotifications(enabled: boolean) {
   const { user } = useAuth();
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setData([]);
-      setLoading(false);
-      return;
-    }
-
+    if (!enabled || !user) return;
+    setLoading(true);
     const q = query(
       collection(db, "notifications"),
       where("userId", "==", user.uid),
       orderBy("createdAt", "desc"),
-      limit(50)
+      limit(30)
     );
-
-    // ✅ ALWAYS use one-time fetch instead of real-time
-    async function fetchOnce() {
-      setLoading(true);
-      try {
-        const snap = await getDocs(q);
-        setData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      } catch (error: any) {
-        console.error("Error fetching notifications:", error);
-        if (error.code === "permission-denied") {
-          console.warn(
-            "Permission denied for notifications - user may not have access"
-          );
-          setData([]);
-        }
-      } finally {
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLoading(false);
-      }
-    }
+      },
+      () => setLoading(false)
+    );
+    return () => unsub();
+  }, [enabled, user]);
 
-    fetchOnce();
-  }, [user?.uid]);
-
-  useEffect(() => {
+  const markAllRead = async () => {
     if (!user) return;
-    if (subscribe) {
-      (async () => {
-        try {
-          const snap = await getDocs(
-            query(
-              collection(db, "notifications"),
-              where("userId", "==", user.uid),
-              orderBy("createdAt", "desc"),
-              limit(50)
-            )
-          );
-          setData(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        } catch (e) {
-          // keep silent
-        }
-      })();
-    }
-  }, [subscribe, user?.uid]);
-
-  const markAsRead = useCallback(async (id: string) => {
-    try {
-      await updateDoc(doc(db, "notifications", id), { read: true });
-      // Manually update local state
-      setData((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, read: true } : item))
-      );
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    if (!data) return;
-    try {
-      await Promise.all(
-        data
-          .filter((n: any) => !n.read)
-          .map((n: any) =>
-            updateDoc(doc(db, "notifications", n.id), { read: true })
-          )
-      );
-      // Manually update local state
-      setData((prev) => prev.map((item) => ({ ...item, read: true })));
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-    }
-  }, [data]);
-
-  return {
-    notifications: data,
-    unreadCount: data.filter((n) => !n.read).length,
-    loading,
-    markAsRead,
-    markAllAsRead,
+    const unread = items.filter((n) => !n.read);
+    await Promise.all(
+      unread.map((n) =>
+        updateDoc(doc(db, "notifications", n.id), { read: true })
+      )
+    );
   };
+
+  return { items, loading, markAllRead };
 }

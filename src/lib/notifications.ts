@@ -6,240 +6,119 @@ import {
   getDocs,
   query,
   serverTimestamp,
-  Timestamp,
   where,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db } from "@/lib/firebase";
 
-// Firestore document shape for in-app notifications
-export type InAppNotification = {
+export type AppNotification = {
   userId: string;
-  type: "comment" | "new_upload";
+  type: "upload" | "comment" | "album";
   title: string;
-  message: string;
-  url?: string;
-  photoId?: string;
-  albumId?: string;
-  actorId?: string; // who triggered it
-  actorName?: string; // denormalized name for fast rendering (optional)
-  read: boolean;
-  createdAt: Timestamp | null;
+  body?: string;
+  url?: string // where to navigate
+  read?: boolean;
+  createdAt?: any;
 };
 
-// Create one in-app notification (server timestamp + unread by default)
-export async function createInAppNotification(
-  input: Omit<InAppNotification, "read" | "createdAt">
-) {
-  try {
-    await addDoc(collection(db, "notifications"), {
-      ...input,
-      read: false,
-      createdAt: serverTimestamp(),
-    });
-  } catch (e) {
-    console.warn("[notify] createInAppNotification failed:", e);
-  }
+export async function createNotification(n: AppNotification) {
+  await addDoc(collection(db, "notifications"), {
+    ...n,
+    read: n.read ?? false,
+    createdAt: serverTimestamp(),
+  });
 }
 
-// Email sending helper (calls your Next.js API route)
-type SendEmailInput = {
+// Email helper
+export async function sendEmailNotification(payload: {
   to: string | string[];
   subject: string;
   html?: string;
-  text?: string;
-};
-
-export async function sendEmailNotification(input: SendEmailInput) {
+  message?: string;
+  type?: string;
+}) {
   try {
-    const res = await fetch("/api/notifications/email", {
+    await fetch("/api/notifications/email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (e) {
-    console.warn("[notify] email send failed:", e);
-    return null;
+  } catch {
+    // ignore email failures for now  
   }
 }
 
-// Notify the photo owner about a new comment (email if prefs allow) and create an in-app notification
-export async function notifyCommentOwner(params: {
-  photoOwnerId: string;
-  commenterName: string;
-  commentText: string;
-  photoTitle?: string;
-  photoUrl?: string;
-  photoId?: string;
-  actorId?: string;
-}) {
-  const {
-    photoOwnerId,
-    commenterName,
-    commentText,
-    photoTitle,
-    photoUrl,
-    photoId,
-    actorId,
-  } = params;
-
-  // Don't notify the actor about their own action
-  if (actorId && actorId === photoOwnerId) return;
-
-  try {
-    const ownerSnap = await getDoc(doc(db, "users", photoOwnerId));
-    if (!ownerSnap.exists()) return;
-
-    const owner = ownerSnap.data() as any;
-    const toEmail: string | undefined =
-      owner.email || owner.emailAddress || undefined;
-
-    const emailNotifications: boolean = owner.emailNotifications ?? true; // default opt-in
-    const commentsNotification: boolean = owner.commentsNotification ?? true; // default opt-in
-
-    // Best-effort email (if owner allows and we have an email)
-    if (emailNotifications && commentsNotification && toEmail) {
-      const subject = `New comment on your photo${
-        photoTitle ? `: ${photoTitle}` : ""
-      }`;
-      const html = `
-        <div style="font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif">
-          <p><strong>${escapeHtml(
-            commenterName
-          )}</strong> commented on your photo${
-        photoTitle ? ` <strong>${escapeHtml(photoTitle)}</strong>` : ""
-      }.</p>
-          <blockquote style="margin:8px 0;padding-left:12px;border-left:3px solid #ddd;color:#444">
-            ${escapeHtml(commentText)}
-          </blockquote>
-          ${
-            photoUrl
-              ? `<p><a href="${photoUrl}" style="color:#2563eb">View photo</a></p>`
-              : ""
-          }
-          <p style="color:#6b7280;font-size:12px">You can change email preferences in Settings.</p>
-        </div>
-      `;
-      await sendEmailNotification({ to: toEmail, subject, html });
-    }
-
-    // In-app notification for the owner (always best-effort)
-    await createInAppNotification({
-      userId: photoOwnerId,
-      type: "comment",
-      title: "New comment on your photo",
-      message: `${commenterName} commented: "${commentText}"`,
-      url: photoUrl,
-      photoId,
-      actorId,
-      actorName: commenterName,
-    });
-  } catch (e) {
-    console.warn("[notify] notifyCommentOwner failed:", e);
-  }
-}
-
-// Notify opted-in users about a new upload (emails + in-app)
-// Excludes the uploader themselves.
-export async function notifyNewUploadSubscribers(params: {
+// Notify all family members except the actor (best effort)
+export async function notifyNewUploadSubscribers(args: {
   uploaderId: string;
   uploaderName: string;
-  photoTitle?: string;
-  photoUrl?: string;
-  photoId?: string;
+  photoTitle: string;
+  photoUrl: string; // app route like /photos/{id}
+  photoId: string;
 }) {
-  const { uploaderId, uploaderName, photoTitle, photoUrl, photoId } = params;
-
   try {
-    console.log("Querying users for notifications...");
-
-    // Find recipients who opted in
-    const q = query(
+    // Find recipients (signed-up family members)
+    const usersQ = query(
       collection(db, "users"),
-      where("emailNotifications", "==", true),
-      where("newUploadsNotification", "==", true)
+      where("uid", "!=", args.uploaderId)
+    );
+    const snap = await getDocs(usersQ);
+
+    const title = `${args.uploaderName} uploaded "${args.photoTitle}"`;
+    const html = `<p><strong>${args.uploaderName}</strong> uploaded “${args.photoTitle}”.</p><p><a href="${process.env.NEXT_PUBLIC_SITE_URL ?? ""}${args.photoUrl}">View photo</a></p>`;
+
+    const emails: string[] = [];
+    await Promise.all(
+      snap.docs.map(async (d) => {
+        const u = d.data() as any;
+        const userId = u.uid || d.id;
+        // Create in-app notification
+        await createNotification({
+          userId,
+          type: "upload",
+          title,
+          body: "",
+          url: args.photoUrl,
+        });
+        if (u.email && u.emailNotifications?.uploads !== false) {
+          emails.push(u.email);
+        }
+      })
     );
 
-    let snap;
-    try {
-      snap = await getDocs(q);
-      console.log(`Found ${snap.size} potential notification recipients`);
-    } catch (queryError: any) {
-      if (queryError.code === "permission-denied") {
-        console.warn(
-          "Permission denied when querying users for notifications. Notifications will be skipped."
-        );
-        return; // Fail silently for notifications
-      }
-      throw queryError; // Re-throw other errors
+    if (emails.length) {
+      await sendEmailNotification({
+        to: emails,
+        subject: title,
+        html,
+        type: "upload",
+      });
     }
-
-    const recipients: Array<{ uid: string; email?: string }> = [];
-    snap.forEach((d) => {
-      if (d.id === uploaderId) return; // Don't notify the uploader
-      const u = d.data() as any;
-      recipients.push({ uid: d.id, email: u.email || u.emailAddress });
-    });
-
-    console.log(`Sending notifications to ${recipients.length} recipients`);
-
-    if (recipients.length === 0) {
-      console.log("No notification recipients found");
-      return;
-    }
-
-    // Create notification documents
-    const notificationPromises = recipients.map(async (recipient) => {
-      try {
-        await addDoc(collection(db, "notifications"), {
-          userId: recipient.uid,
-          type: "new_upload",
-          title: "New Photo Uploaded",
-          message: `${uploaderName} uploaded ${
-            photoTitle ? `"${photoTitle}"` : "a new photo"
-          }`,
-          url: photoUrl || "/photos", // ✅ rename actionUrl -> url
-          photoId: photoId,
-          uploaderId: uploaderId,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      } catch (error: any) {
-        console.error(
-          `Failed to create notification for user ${recipient.uid}:`,
-          error
-        );
-      }
-    });
-
-    await Promise.all(notificationPromises);
-    console.log("Notification documents created successfully");
-
-    // Optionally send emails here as well
-    // ... email logic if needed
-  } catch (error: any) {
-    console.warn("notifyNewUploadSubscribers failed:", error);
-    // Don't throw the error - notifications should fail silently
+  } catch (e) {
+    // best effort only
+    console.warn("notifyNewUploadSubscribers failed", e);
   }
 }
 
-// Utilities
-function escapeHtml(s: string) {
-  return s.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case "&":
-        return "&amp;";
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case '"':
-        return "&quot;";
-      case "'":
-        return "&#039;";
-      default:
-        return c;
-    }
+export async function notifyCommentOwner(args: {
+  ownerId: string;
+  ownerEmail?: string;
+  commenterName: string;
+  photoTitle: string;
+  photoUrl: string;
+}) {
+  const title = `${args.commenterName} commented on "${args.photoTitle}"`;
+  await createNotification({
+    userId: args.ownerId,
+    type: "comment",
+    title,
+    url: args.photoUrl,
   });
+  if (args.ownerEmail) {
+    await sendEmailNotification({
+      to: args.ownerEmail,
+      subject: title,
+      html: `<p><strong>${args.commenterName}</strong> commented on “${args.photoTitle}”.</p><p><a href="${process.env.NEXT_PUBLIC_SITE_URL ?? ""}${args.photoUrl}">Open photo</a></p>`,
+      type: "comment",
+    });
+  }
 }
