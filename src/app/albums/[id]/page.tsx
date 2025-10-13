@@ -18,6 +18,7 @@ import {
   orderBy,
   writeBatch,
   arrayUnion,
+  arrayRemove,
   getDocs,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
@@ -248,6 +249,61 @@ export default function AlbumPage() {
     }
   }, [album, user, db, albumId, handleClearCacheAndRefetch]);
 
+  // ✅ ADD: Function to clean up incorrect photos
+  const handleRemoveIncorrectPhotos = useCallback(async () => {
+    if (!album || !user || !photos) return;
+
+    const confirmRemove = window.confirm(
+      `This will remove photos that don't belong to this album. Continue?`
+    );
+
+    if (!confirmRemove) return;
+
+    const toastId = toast.loading("Checking for incorrect photos...");
+
+    try {
+      // Get the photo IDs that SHOULD be in this album (from album.photos array)
+      const correctPhotoIds = new Set(album.photos || []);
+
+      // Find photos currently showing that aren't in the correct list
+      const incorrectPhotos = photos.filter(
+        (photo) => !correctPhotoIds.has(photo.id)
+      );
+
+      console.log("❌ Incorrect photos found:", incorrectPhotos.length);
+      incorrectPhotos.forEach((p) => console.log(`  - ${p.title} (${p.id})`));
+
+      if (incorrectPhotos.length === 0) {
+        toast.success("No incorrect photos found!", { id: toastId });
+        return;
+      }
+
+      // Remove this album ID from those photos' albums arrays
+      const batch = writeBatch(db);
+
+      incorrectPhotos.forEach((photo) => {
+        const photoRef = doc(db, "photos", photo.id);
+        batch.update(photoRef, {
+          albums: arrayRemove(albumId),
+        });
+      });
+
+      await batch.commit();
+
+      toast.success(`Removed ${incorrectPhotos.length} incorrect photo(s)!`, {
+        id: toastId,
+      });
+
+      // Clear cache and refetch
+      await handleClearCacheAndRefetch();
+    } catch (error: any) {
+      console.error("❌ Error removing incorrect photos:", error);
+      toast.error(error?.message || "Failed to clean up photos", {
+        id: toastId,
+      });
+    }
+  }, [album, user, photos, db, albumId, handleClearCacheAndRefetch]);
+
   // --- Effects ---
   useEffect(() => {
     if (!authLoading && !user) {
@@ -323,11 +379,19 @@ export default function AlbumPage() {
               </Link>
 
               <div className="flex gap-2">
-                {/* ✅ ADD: Fix Album button */}
+                {/* ✅ ADD: Remove incorrect photos button */}
+                <button
+                  onClick={handleRemoveIncorrectPhotos}
+                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded"
+                  title="Remove photos that don't belong"
+                >
+                  🧹 Clean Up
+                </button>
+
                 <button
                   onClick={handleFixAlbum}
                   className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded"
-                  title="Scan and re-link photos to this album"
+                  title="Restore missing photos"
                 >
                   🔧 Fix Album
                 </button>
