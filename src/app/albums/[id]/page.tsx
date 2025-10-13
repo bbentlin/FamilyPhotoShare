@@ -18,6 +18,7 @@ import {
   orderBy,
   writeBatch,
   arrayUnion,
+  getDocs,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { Album, Photo } from "@/types";
@@ -189,6 +190,77 @@ export default function AlbumPage() {
     [albumId, db, user, album?.photoCount, refetchPhotos, refetchAlbum]
   );
 
+  // ✅ ADD: Function to scan and re-link photos
+  const handleFixAlbum = useCallback(async () => {
+    if (!album || !user) return;
+
+    const confirmFix = window.confirm(
+      `This will scan all photos and re-link those that mention "${album.title}". Continue?`
+    );
+
+    if (!confirmFix) return;
+
+    const toastId = toast.loading("Scanning photos...");
+
+    try {
+      // Get ALL photos
+      const allPhotosQuery = query(collection(db, "photos"));
+      const allPhotosSnap = await getDocs(allPhotosQuery);
+
+      const photosToFix: Photo[] = [];
+
+      allPhotosSnap.forEach((docSnap) => {
+        const photo = { id: docSnap.id, ...docSnap.data() } as Photo;
+
+        // Find photos that mention this album's keywords but don't have the album ID
+        const shouldBeInAlbum =
+          photo.title?.toLowerCase().includes("maddie") ||
+          photo.title?.toLowerCase().includes("graduation") ||
+          photo.description?.toLowerCase().includes("maddie") ||
+          photo.description?.toLowerCase().includes("graduation");
+
+        const hasAlbumId = photo.albums?.includes(albumId);
+
+        if (shouldBeInAlbum && !hasAlbumId) {
+          photosToFix.push(photo);
+        }
+      });
+
+      console.log(`Found ${photosToFix.length} photos to re-link`);
+
+      if (photosToFix.length === 0) {
+        toast.success("No photos need fixing!", { id: toastId });
+        return;
+      }
+
+      // Batch update them
+      const batch = writeBatch(db);
+
+      photosToFix.forEach((photo) => {
+        const photoRef = doc(db, "photos", photo.id);
+        batch.update(photoRef, {
+          albums: arrayUnion(albumId),
+        });
+      });
+
+      // Update album photoCount
+      const albumRef = doc(db, "albums", albumId);
+      batch.update(albumRef, {
+        photoCount: photosToFix.length,
+      });
+
+      await batch.commit();
+
+      toast.success(`Re-linked ${photosToFix.length} photos!`, { id: toastId });
+
+      // Clear cache and refetch
+      await handleClearCacheAndRefetch();
+    } catch (error) {
+      console.error("Error fixing album:", error);
+      toast.error("Failed to fix album", { id: toastId });
+    }
+  }, [album, user, db, albumId, handleClearCacheAndRefetch]);
+
   // --- Effects ---
   useEffect(() => {
     if (!authLoading && !user) {
@@ -263,14 +335,24 @@ export default function AlbumPage() {
                 ← Back to Albums
               </Link>
 
-              {/* ✅ ADD: Debug button (temporary) */}
-              <button
-                onClick={handleClearCacheAndRefetch}
-                className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs rounded"
-                title="Clear cache and force refresh"
-              >
-                🔄 Force Refresh
-              </button>
+              <div className="flex gap-2">
+                {/* ✅ ADD: Fix Album button */}
+                <button
+                  onClick={handleFixAlbum}
+                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded"
+                  title="Scan and re-link photos to this album"
+                >
+                  🔧 Fix Album
+                </button>
+
+                <button
+                  onClick={handleClearCacheAndRefetch}
+                  className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs rounded"
+                  title="Clear cache and force refresh"
+                >
+                  🔄 Force Refresh
+                </button>
+              </div>
 
               {album.createdBy === user?.uid && (
                 <Link
