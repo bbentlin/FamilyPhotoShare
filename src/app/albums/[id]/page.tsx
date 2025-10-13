@@ -65,6 +65,7 @@ export default function AlbumPage() {
     data: album,
     loading: albumLoading,
     error: albumError,
+    refetch: refetchAlbum, // ✅ ADD: Get refetch function
   } = useCachedFirebaseDoc<Album>(albumDocRef, {
     cacheKey: `album_${albumId}`,
     cacheTtl: CACHE_CONFIGS.albums.ttl,
@@ -87,23 +88,57 @@ export default function AlbumPage() {
     data: photos,
     loading: photosLoading,
     error: photosError,
+    refetch: refetchPhotos, // ✅ ADD: Get refetch function
   } = useCachedFirebaseQuery<Photo>(photosQuery, {
     cacheKey: `album_photos_${albumId}`,
     cacheTtl: CACHE_CONFIGS.photos.ttl,
     enableRealtime: true,
   });
 
-  // --- Effects ---
+  // ✅ ADD: Debug logging
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
-  }, [user, authLoading, router]);
+    if (album) {
+      console.group("🔍 Album Debug");
+      console.log("Album ID:", albumId);
+      console.log("Album title:", album.title);
+      console.log("Album photoCount:", album.photoCount);
+      console.log("Photos loaded:", photos?.length || 0);
+      console.log("Photos loading:", photosLoading);
+      console.log("Photos error:", photosError);
 
-  // --- Event Handlers ---
+      // Check localStorage cache
+      const cacheKey = `album_photos_${albumId}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const data = JSON.parse(cached);
+        console.log("Cache timestamp:", new Date(data.timestamp));
+        console.log("Cached photos:", data.data?.length || 0);
+      }
+      console.groupEnd();
+    }
+  }, [album, albumId, photos, photosLoading, photosError]);
+
+  // ✅ ADD: Force cache clear and refetch
+  const handleClearCacheAndRefetch = useCallback(async () => {
+    // Clear localStorage
+    localStorage.removeItem(`album_photos_${albumId}`);
+    localStorage.removeItem(`album_${albumId}`);
+
+    // Invalidate cache manager
+    if (user?.uid) {
+      CacheInvalidationManager.invalidateAlbumPhotos(albumId);
+      CacheInvalidationManager.invalidateAlbums(user.uid);
+    }
+
+    // Force refetch
+    await Promise.all([refetchPhotos(), refetchAlbum()]);
+
+    toast.success("Cache cleared and data refreshed!");
+  }, [albumId, user, refetchPhotos, refetchAlbum]);
+
+  // ✅ MODIFY: Update handlePhotosAdded to invalidate cache
   const handlePhotosAdded = useCallback(
     async (newPhotos: Photo[]) => {
-      // ✅ This function saves the photos you select in the modal
       if (!albumId || newPhotos.length === 0) return;
 
       const toastId = toast.loading(
@@ -126,25 +161,42 @@ export default function AlbumPage() {
 
         await batch.commit();
 
+        // ✅ CHANGE: More aggressive cache invalidation
+        localStorage.removeItem(`album_photos_${albumId}`);
+        localStorage.removeItem(`album_${albumId}`);
+
         if (user) {
-          CacheInvalidationManager.invalidateForAction(
-            "album-photo-add",
-            user.uid
-          );
+          CacheInvalidationManager.invalidateAlbumPhotos(albumId);
+          CacheInvalidationManager.invalidateAlbums(user.uid);
+          CacheInvalidationManager.invalidatePhotos(user.uid);
         }
+
+        // ✅ ADD: Force refetch after a short delay
+        setTimeout(() => {
+          refetchPhotos();
+          refetchAlbum();
+        }, 500);
 
         toast.success(`${newPhotos.length} photo(s) added successfully!`, {
           id: toastId,
         });
-        setIsSelectorOpen(false); // Close the modal on success
+        setIsSelectorOpen(false);
       } catch (error) {
         console.error("Error adding photos to album:", error);
         toast.error("Failed to add photos.", { id: toastId });
       }
     },
-    [albumId, db, user, album?.photoCount]
+    [albumId, db, user, album?.photoCount, refetchPhotos, refetchAlbum]
   );
 
+  // --- Effects ---
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
+
+  // --- Event Handlers ---
   const openPhotoModal = useCallback((photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
@@ -210,6 +262,16 @@ export default function AlbumPage() {
               >
                 ← Back to Albums
               </Link>
+
+              {/* ✅ ADD: Debug button (temporary) */}
+              <button
+                onClick={handleClearCacheAndRefetch}
+                className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs rounded"
+                title="Clear cache and force refresh"
+              >
+                🔄 Force Refresh
+              </button>
+
               {album.createdBy === user?.uid && (
                 <Link
                   href={`/albums/${albumId}/edit`}
