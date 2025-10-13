@@ -18,8 +18,8 @@ import {
   orderBy,
   writeBatch,
   arrayUnion,
-  arrayRemove,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { Album, Photo } from "@/types";
@@ -54,10 +54,9 @@ export default function AlbumPage() {
   // --- State ---
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
-  const [isSelectorOpen, setIsSelectorOpen] = useState(false); // ✅ State to control the modal
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
 
   // --- Data Fetching using Caching Hooks ---
-  // This is now the SINGLE source of truth for your data.
   const albumDocRef = useMemo(
     () => (albumId ? doc(db, "albums", albumId) : null),
     [albumId, db]
@@ -67,7 +66,7 @@ export default function AlbumPage() {
     data: album,
     loading: albumLoading,
     error: albumError,
-    refetch: refetchAlbum, // ✅ ADD: Get refetch function
+    refetch: refetchAlbum,
   } = useCachedFirebaseDoc<Album>(albumDocRef, {
     cacheKey: `album_${albumId}`,
     cacheTtl: CACHE_CONFIGS.albums.ttl,
@@ -90,55 +89,48 @@ export default function AlbumPage() {
     data: photos,
     loading: photosLoading,
     error: photosError,
-    refetch: refetchPhotos, // ✅ ADD: Get refetch function
+    refetch: refetchPhotos,
   } = useCachedFirebaseQuery<Photo>(photosQuery, {
     cacheKey: `album_photos_${albumId}`,
     cacheTtl: CACHE_CONFIGS.photos.ttl,
     enableRealtime: true,
   });
 
-  // ✅ ADD: Debug logging
+  // --- Effects ---
   useEffect(() => {
-    if (album) {
-      console.group("🔍 Album Debug");
-      console.log("Album ID:", albumId);
-      console.log("Album title:", album.title);
-      console.log("Album photoCount:", album.photoCount);
-      console.log("Photos loaded:", photos?.length || 0);
-      console.log("Photos loading:", photosLoading);
-      console.log("Photos error:", photosError);
+    if (!authLoading && !user) {
+      router.push("/login");
+    }
+  }, [user, authLoading, router]);
 
-      // Check localStorage cache
-      const cacheKey = `album_photos_${albumId}`;
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const data = JSON.parse(cached);
-        console.log("Cache timestamp:", new Date(data.timestamp));
-        console.log("Cached photos:", data.data?.length || 0);
+  // Auto-fix photoCount if it's wrong
+  useEffect(() => {
+    const fixPhotoCount = async () => {
+      if (!album || !photos || photosLoading) return;
+
+      const actualCount = photos.length;
+      const storedCount = album.photoCount || 0;
+
+      // If counts don't match, fix it
+      if (actualCount !== storedCount) {
+        console.log(`Fixing photoCount: ${storedCount} → ${actualCount}`);
+        try {
+          const albumRef = doc(db, "albums", albumId);
+          await updateDoc(albumRef, {
+            photoCount: actualCount,
+          });
+          // Refetch to update UI
+          refetchAlbum();
+        } catch (error) {
+          console.error("Error fixing photoCount:", error);
+        }
       }
-      console.groupEnd();
-    }
-  }, [album, albumId, photos, photosLoading, photosError]);
+    };
 
-  // ✅ ADD: Force cache clear and refetch
-  const handleClearCacheAndRefetch = useCallback(async () => {
-    // Clear localStorage
-    localStorage.removeItem(`album_photos_${albumId}`);
-    localStorage.removeItem(`album_${albumId}`);
+    fixPhotoCount();
+  }, [album, photos, photosLoading, albumId, db, refetchAlbum]);
 
-    // Invalidate cache manager
-    if (user?.uid) {
-      CacheInvalidationManager.invalidateAlbumPhotos(albumId);
-      CacheInvalidationManager.invalidateAlbums(user.uid);
-    }
-
-    // Force refetch
-    await Promise.all([refetchPhotos(), refetchAlbum()]);
-
-    toast.success("Cache cleared and data refreshed!");
-  }, [albumId, user, refetchPhotos, refetchAlbum]);
-
-  // ✅ MODIFY: Update handlePhotosAdded to invalidate cache
+  // --- Event Handlers ---
   const handlePhotosAdded = useCallback(
     async (newPhotos: Photo[]) => {
       if (!albumId || newPhotos.length === 0) return;
@@ -157,23 +149,22 @@ export default function AlbumPage() {
           });
         });
 
+        // ✅ FIX: Calculate new count based on actual photos
+        const newPhotoCount = (photos?.length || 0) + newPhotos.length;
         batch.update(albumRef, {
-          photoCount: (album?.photoCount || 0) + newPhotos.length,
+          photoCount: newPhotoCount,
         });
 
         await batch.commit();
 
-        // ✅ CHANGE: More aggressive cache invalidation
-        localStorage.removeItem(`album_photos_${albumId}`);
-        localStorage.removeItem(`album_${albumId}`);
-
+        // Invalidate cache
         if (user) {
           CacheInvalidationManager.invalidateAlbumPhotos(albumId);
           CacheInvalidationManager.invalidateAlbums(user.uid);
           CacheInvalidationManager.invalidatePhotos(user.uid);
         }
 
-        // ✅ ADD: Force refetch after a short delay
+        // Force refetch
         setTimeout(() => {
           refetchPhotos();
           refetchAlbum();
@@ -188,130 +179,9 @@ export default function AlbumPage() {
         toast.error("Failed to add photos.", { id: toastId });
       }
     },
-    [albumId, db, user, album?.photoCount, refetchPhotos, refetchAlbum]
+    [albumId, db, user, photos, refetchPhotos, refetchAlbum]
   );
 
-  // ✅ CORRECT FIX: Use the album's photos array to restore links
-  const handleFixAlbum = useCallback(async () => {
-    if (!album || !user) return;
-
-    const confirmFix = window.confirm(
-      `This will restore the album links for all ${album.photoCount} photos. Continue?`
-    );
-
-    if (!confirmFix) return;
-
-    const toastId = toast.loading("Restoring photo links...");
-
-    try {
-      console.log("🔧 Starting album fix using album's photos array...");
-
-      // Get the photo IDs from the album document's photos array
-      const photoIds = album.photos || [];
-      console.log("📸 Photo IDs from album document:", photoIds.length);
-
-      if (photoIds.length === 0) {
-        toast.error("No photos found in album document", { id: toastId });
-        return;
-      }
-
-      // Batch update all these photos to include this album in their albums array
-      const batchSize = 500; // Firestore batch limit
-      const batches = [];
-
-      for (let i = 0; i < photoIds.length; i += batchSize) {
-        const batch = writeBatch(db);
-        const chunk = photoIds.slice(i, i + batchSize);
-
-        chunk.forEach((photoId) => {
-          const photoRef = doc(db, "photos", photoId);
-          batch.update(photoRef, {
-            albums: arrayUnion(albumId), // Add this album ID to the photo's albums array
-          });
-        });
-
-        batches.push(batch.commit());
-      }
-
-      console.log("💾 Committing batch operations...");
-      await Promise.all(batches);
-      console.log("✅ All batches committed");
-
-      toast.success(`Restored links for ${photoIds.length} photos!`, {
-        id: toastId,
-      });
-
-      // Clear cache and refetch
-      await handleClearCacheAndRefetch();
-    } catch (error: any) {
-      console.error("❌ Error fixing album:", error);
-      toast.error(error?.message || "Failed to fix album", { id: toastId });
-    }
-  }, [album, user, db, albumId, handleClearCacheAndRefetch]);
-
-  // ✅ ADD: Function to clean up incorrect photos
-  const handleRemoveIncorrectPhotos = useCallback(async () => {
-    if (!album || !user || !photos) return;
-
-    const confirmRemove = window.confirm(
-      `This will remove photos that don't belong to this album. Continue?`
-    );
-
-    if (!confirmRemove) return;
-
-    const toastId = toast.loading("Checking for incorrect photos...");
-
-    try {
-      // Get the photo IDs that SHOULD be in this album (from album.photos array)
-      const correctPhotoIds = new Set(album.photos || []);
-
-      // Find photos currently showing that aren't in the correct list
-      const incorrectPhotos = photos.filter(
-        (photo) => !correctPhotoIds.has(photo.id)
-      );
-
-      console.log("❌ Incorrect photos found:", incorrectPhotos.length);
-      incorrectPhotos.forEach((p) => console.log(`  - ${p.title} (${p.id})`));
-
-      if (incorrectPhotos.length === 0) {
-        toast.success("No incorrect photos found!", { id: toastId });
-        return;
-      }
-
-      // Remove this album ID from those photos' albums arrays
-      const batch = writeBatch(db);
-
-      incorrectPhotos.forEach((photo) => {
-        const photoRef = doc(db, "photos", photo.id);
-        batch.update(photoRef, {
-          albums: arrayRemove(albumId),
-        });
-      });
-
-      await batch.commit();
-
-      toast.success(`Removed ${incorrectPhotos.length} incorrect photo(s)!`, {
-        id: toastId,
-      });
-
-      // Clear cache and refetch
-      await handleClearCacheAndRefetch();
-    } catch (error: any) {
-      console.error("❌ Error removing incorrect photos:", error);
-      toast.error(error?.message || "Failed to clean up photos", {
-        id: toastId,
-      });
-    }
-  }, [album, user, photos, db, albumId, handleClearCacheAndRefetch]);
-
-  // --- Effects ---
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push("/login");
-    }
-  }, [user, authLoading, router]);
-
-  // --- Event Handlers ---
   const openPhotoModal = useCallback((photo: Photo, index: number) => {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
@@ -378,33 +248,6 @@ export default function AlbumPage() {
                 ← Back to Albums
               </Link>
 
-              <div className="flex gap-2">
-                {/* ✅ ADD: Remove incorrect photos button */}
-                <button
-                  onClick={handleRemoveIncorrectPhotos}
-                  className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs rounded"
-                  title="Remove photos that don't belong"
-                >
-                  🧹 Clean Up
-                </button>
-
-                <button
-                  onClick={handleFixAlbum}
-                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs rounded"
-                  title="Restore missing photos"
-                >
-                  🔧 Fix Album
-                </button>
-
-                <button
-                  onClick={handleClearCacheAndRefetch}
-                  className="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white text-xs rounded"
-                  title="Clear cache and force refresh"
-                >
-                  🔄 Force Refresh
-                </button>
-              </div>
-
               {album.createdBy === user?.uid && (
                 <Link
                   href={`/albums/${albumId}/edit`}
@@ -422,8 +265,13 @@ export default function AlbumPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {album.title}
             </h1>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              {album.description}
+            {album.description && (
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                {album.description}
+              </p>
+            )}
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {photos?.length || 0} {photos?.length === 1 ? "photo" : "photos"}
             </p>
           </div>
 
@@ -456,7 +304,6 @@ export default function AlbumPage() {
                   Add some photos to bring this album to life
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  {/* ✅ THIS IS THE FIX: This is now a button that opens the modal */}
                   <button
                     onClick={() => setIsSelectorOpen(true)}
                     className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
@@ -476,7 +323,7 @@ export default function AlbumPage() {
         </main>
       </div>
 
-      {/* ✅ MODALS ARE RENDERED HERE */}
+      {/* Modals */}
       <Suspense fallback={<ModalLoadingSpinner />}>
         {selectedPhoto && (
           <PhotoModal
