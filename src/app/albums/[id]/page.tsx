@@ -190,95 +190,60 @@ export default function AlbumPage() {
     [albumId, db, user, album?.photoCount, refetchPhotos, refetchAlbum]
   );
 
-  // ✅ FIX: Function to scan and re-link photos
+  // ✅ CORRECT FIX: Use the album's photos array to restore links
   const handleFixAlbum = useCallback(async () => {
     if (!album || !user) return;
 
     const confirmFix = window.confirm(
-      `This will scan all photos and re-link those that mention "${album.title}". Continue?`
+      `This will restore the album links for all ${album.photoCount} photos. Continue?`
     );
 
     if (!confirmFix) return;
 
-    const toastId = toast.loading("Scanning photos...");
+    const toastId = toast.loading("Restoring photo links...");
 
     try {
-      // Get ALL photos
-      const allPhotosQuery = query(collection(db, "photos"));
-      const allPhotosSnap = await getDocs(allPhotosQuery);
+      console.log("🔧 Starting album fix using album's photos array...");
 
-      const photosToFix: Photo[] = [];
+      // Get the photo IDs from the album document's photos array
+      const photoIds = album.photos || [];
+      console.log("📸 Photo IDs from album document:", photoIds.length);
 
-      allPhotosSnap.forEach((docSnap) => {
-        const photo = { id: docSnap.id, ...docSnap.data() } as Photo;
-
-        // Find photos that mention this album's keywords but don't have the album ID
-        const shouldBeInAlbum =
-          photo.title?.toLowerCase().includes("maddie") ||
-          photo.title?.toLowerCase().includes("graduation") ||
-          photo.description?.toLowerCase().includes("maddie") ||
-          photo.description?.toLowerCase().includes("graduation");
-
-        const hasAlbumId = photo.albums?.includes(albumId);
-
-        if (shouldBeInAlbum && !hasAlbumId) {
-          photosToFix.push(photo);
-        }
-      });
-
-      console.log(`Found ${photosToFix.length} photos to re-link`);
-
-      if (photosToFix.length === 0) {
-        toast.success("No photos need fixing!", { id: toastId });
+      if (photoIds.length === 0) {
+        toast.error("No photos found in album document", { id: toastId });
         return;
       }
 
-      // ✅ FIX: Use multiple batches if needed (Firestore batch limit is 500)
-      const batchSize = 500;
+      // Batch update all these photos to include this album in their albums array
+      const batchSize = 500; // Firestore batch limit
       const batches = [];
 
-      for (let i = 0; i < photosToFix.length; i += batchSize) {
+      for (let i = 0; i < photoIds.length; i += batchSize) {
         const batch = writeBatch(db);
-        const chunk = photosToFix.slice(i, i + batchSize);
+        const chunk = photoIds.slice(i, i + batchSize);
 
-        chunk.forEach((photo) => {
-          const photoRef = doc(db, "photos", photo.id);
+        chunk.forEach((photoId) => {
+          const photoRef = doc(db, "photos", photoId);
           batch.update(photoRef, {
-            albums: arrayUnion(albumId),
+            albums: arrayUnion(albumId), // Add this album ID to the photo's albums array
           });
         });
 
         batches.push(batch.commit());
       }
 
-      // Execute all batches
+      console.log("💾 Committing batch operations...");
       await Promise.all(batches);
+      console.log("✅ All batches committed");
 
-      // ✅ FIX: Recalculate the actual photoCount from Firestore
-      const updatedPhotosQuery = query(
-        collection(db, "photos"),
-        where("albums", "array-contains", albumId)
-      );
-      const updatedSnap = await getDocs(updatedPhotosQuery);
-      const actualCount = updatedSnap.size;
-
-      // Update album photoCount separately
-      const albumRef = doc(db, "albums", albumId);
-      const finalBatch = writeBatch(db);
-      finalBatch.update(albumRef, {
-        photoCount: actualCount,
+      toast.success(`Restored links for ${photoIds.length} photos!`, {
+        id: toastId,
       });
-      await finalBatch.commit();
-
-      toast.success(
-        `Re-linked ${photosToFix.length} photos! Album now has ${actualCount} total.`,
-        { id: toastId }
-      );
 
       // Clear cache and refetch
       await handleClearCacheAndRefetch();
     } catch (error: any) {
-      console.error("Error fixing album:", error);
+      console.error("❌ Error fixing album:", error);
       toast.error(error?.message || "Failed to fix album", { id: toastId });
     }
   }, [album, user, db, albumId, handleClearCacheAndRefetch]);
