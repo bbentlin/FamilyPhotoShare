@@ -18,7 +18,7 @@ import {
   orderBy,
   writeBatch,
   arrayUnion,
-  getDocs,
+  arrayRemove,
   updateDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
@@ -55,6 +55,10 @@ export default function AlbumPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number>(0);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isManageMode, setIsManageMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(
+    new Set()
+  );
 
   // --- Data Fetching using Caching Hooks ---
   const albumDocRef = useMemo(
@@ -111,7 +115,6 @@ export default function AlbumPage() {
       const actualCount = photos.length;
       const storedCount = album.photoCount || 0;
 
-      // If counts don't match, fix it
       if (actualCount !== storedCount) {
         console.log(`Fixing photoCount: ${storedCount} → ${actualCount}`);
         try {
@@ -119,7 +122,6 @@ export default function AlbumPage() {
           await updateDoc(albumRef, {
             photoCount: actualCount,
           });
-          // Refetch to update UI
           refetchAlbum();
         } catch (error) {
           console.error("Error fixing photoCount:", error);
@@ -149,7 +151,6 @@ export default function AlbumPage() {
           });
         });
 
-        // ✅ FIX: Calculate new count based on actual photos
         const newPhotoCount = (photos?.length || 0) + newPhotos.length;
         batch.update(albumRef, {
           photoCount: newPhotoCount,
@@ -157,14 +158,12 @@ export default function AlbumPage() {
 
         await batch.commit();
 
-        // Invalidate cache
         if (user) {
           CacheInvalidationManager.invalidateAlbumPhotos(albumId);
           CacheInvalidationManager.invalidateAlbums(user.uid);
           CacheInvalidationManager.invalidatePhotos(user.uid);
         }
 
-        // Force refetch
         setTimeout(() => {
           refetchPhotos();
           refetchAlbum();
@@ -182,10 +181,86 @@ export default function AlbumPage() {
     [albumId, db, user, photos, refetchPhotos, refetchAlbum]
   );
 
-  const openPhotoModal = useCallback((photo: Photo, index: number) => {
-    setSelectedPhoto(photo);
-    setSelectedPhotoIndex(index);
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
   }, []);
+
+  const handleRemoveSelected = useCallback(async () => {
+    if (selectedPhotoIds.size === 0) return;
+
+    const confirmRemove = window.confirm(
+      `Remove ${selectedPhotoIds.size} photo(s) from this album? The photos will not be deleted, just removed from the album.`
+    );
+
+    if (!confirmRemove) return;
+
+    const toastId = toast.loading(
+      `Removing ${selectedPhotoIds.size} photo(s)...`
+    );
+
+    try {
+      const batch = writeBatch(db);
+      const albumRef = doc(db, "albums", albumId);
+
+      selectedPhotoIds.forEach((photoId) => {
+        const photoRef = doc(db, "photos", photoId);
+        batch.update(photoRef, {
+          albums: arrayRemove(albumId),
+        });
+      });
+
+      const newPhotoCount = (photos?.length || 0) - selectedPhotoIds.size;
+      batch.update(albumRef, {
+        photoCount: newPhotoCount,
+      });
+
+      await batch.commit();
+
+      if (user) {
+        CacheInvalidationManager.invalidateAlbumPhotos(albumId);
+        CacheInvalidationManager.invalidateAlbums(user.uid);
+        CacheInvalidationManager.invalidatePhotos(user.uid);
+      }
+
+      setSelectedPhotoIds(new Set());
+      setIsManageMode(false);
+
+      setTimeout(() => {
+        refetchPhotos();
+        refetchAlbum();
+      }, 500);
+
+      toast.success(`${selectedPhotoIds.size} photo(s) removed!`, {
+        id: toastId,
+      });
+    } catch (error) {
+      console.error("Error removing photos:", error);
+      toast.error("Failed to remove photos.", { id: toastId });
+    }
+  }, [selectedPhotoIds, db, albumId, photos, user, refetchPhotos, refetchAlbum]);
+
+  const handleCancelManage = useCallback(() => {
+    setIsManageMode(false);
+    setSelectedPhotoIds(new Set());
+  }, []);
+
+  const openPhotoModal = useCallback(
+    (photo: Photo, index: number) => {
+      if (!isManageMode) {
+        setSelectedPhoto(photo);
+        setSelectedPhotoIndex(index);
+      }
+    },
+    [isManageMode]
+  );
 
   const closePhotoModal = useCallback(() => setSelectedPhoto(null), []);
 
@@ -235,6 +310,8 @@ export default function AlbumPage() {
     );
   }
 
+  const isOwner = album.createdBy === user?.uid;
+
   return (
     <>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -248,14 +325,52 @@ export default function AlbumPage() {
                 ← Back to Albums
               </Link>
 
-              {album.createdBy === user?.uid && (
-                <Link
-                  href={`/albums/${albumId}/edit`}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                  Edit Album
-                </Link>
-              )}
+              <div className="flex gap-2">
+                {isOwner && photos && photos.length > 0 && (
+                  <>
+                    {isManageMode ? (
+                      <>
+                        <button
+                          onClick={handleRemoveSelected}
+                          disabled={selectedPhotoIds.size === 0}
+                          className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Remove ({selectedPhotoIds.size})
+                        </button>
+                        <button
+                          onClick={handleCancelManage}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setIsManageMode(true)}
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+                        >
+                          Manage Photos
+                        </button>
+                        <Link
+                          href={`/albums/${albumId}/edit`}
+                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        >
+                          Edit Album
+                        </Link>
+                      </>
+                    )}
+                  </>
+                )}
+                {!isOwner && album.createdBy === user?.uid && (
+                  <Link
+                    href={`/albums/${albumId}/edit`}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    Edit Album
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -277,22 +392,60 @@ export default function AlbumPage() {
 
           {photos && photos.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {photos.map((photo, index) => (
-                <div
-                  key={photo.id}
-                  className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700 cursor-pointer group"
-                  onClick={() => openPhotoModal(photo, index)}
-                >
-                  <PhotoImage
-                    src={photo.url}
-                    alt={photo.title || "Photo"}
-                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    fill
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                    priority={index < 12}
-                  />
-                </div>
-              ))}
+              {photos.map((photo, index) => {
+                const isSelected = selectedPhotoIds.has(photo.id);
+                return (
+                  <div
+                    key={photo.id}
+                    className={`relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-700 cursor-pointer group ${
+                      isManageMode ? "ring-2 ring-offset-2" : ""
+                    } ${
+                      isSelected
+                        ? "ring-blue-500"
+                        : isManageMode
+                        ? "ring-transparent"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      isManageMode
+                        ? togglePhotoSelection(photo.id)
+                        : openPhotoModal(photo, index)
+                    }
+                  >
+                    <PhotoImage
+                      src={photo.url}
+                      alt={photo.title || "Photo"}
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                      priority={index < 12}
+                    />
+                    {isManageMode && (
+                      <div
+                        className={`absolute top-2 right-2 w-6 h-6 rounded-full border-2 ${
+                          isSelected
+                            ? "bg-blue-600 border-blue-600"
+                            : "bg-white border-gray-300"
+                        } flex items-center justify-center`}
+                      >
+                        {isSelected && (
+                          <svg
+                            className="w-4 h-4 text-white"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16">
@@ -325,7 +478,7 @@ export default function AlbumPage() {
 
       {/* Modals */}
       <Suspense fallback={<ModalLoadingSpinner />}>
-        {selectedPhoto && (
+        {selectedPhoto && !isManageMode && (
           <PhotoModal
             photo={selectedPhoto}
             isOpen={true}
