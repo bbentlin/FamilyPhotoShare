@@ -96,11 +96,9 @@ export default function Comments({
           ownerId: photoOwnerId,
           ownerEmail: undefined, // optional
           commenterName: user.displayName || user.email || "Someone",
-          photoTitle: undefined,
+          photoTitle: "Photo",
           photoUrl:
-            typeof window !== "undefined" ? window.location.href : undefined,
-          photoId: photoId,
-          actorId: user.uid, // ✅ supply actor
+            typeof window !== "undefined" ? window.location.href : "",
         });
       }
 
