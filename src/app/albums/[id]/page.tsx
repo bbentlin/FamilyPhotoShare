@@ -190,7 +190,7 @@ export default function AlbumPage() {
     [albumId, db, user, album?.photoCount, refetchPhotos, refetchAlbum]
   );
 
-  // ✅ ADD: Function to scan and re-link photos
+  // ✅ FIX: Function to scan and re-link photos
   const handleFixAlbum = useCallback(async () => {
     if (!album || !user) return;
 
@@ -233,31 +233,53 @@ export default function AlbumPage() {
         return;
       }
 
-      // Batch update them
-      const batch = writeBatch(db);
+      // ✅ FIX: Use multiple batches if needed (Firestore batch limit is 500)
+      const batchSize = 500;
+      const batches = [];
 
-      photosToFix.forEach((photo) => {
-        const photoRef = doc(db, "photos", photo.id);
-        batch.update(photoRef, {
-          albums: arrayUnion(albumId),
+      for (let i = 0; i < photosToFix.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = photosToFix.slice(i, i + batchSize);
+
+        chunk.forEach((photo) => {
+          const photoRef = doc(db, "photos", photo.id);
+          batch.update(photoRef, {
+            albums: arrayUnion(albumId),
+          });
         });
-      });
 
-      // Update album photoCount
+        batches.push(batch.commit());
+      }
+
+      // Execute all batches
+      await Promise.all(batches);
+
+      // ✅ FIX: Recalculate the actual photoCount from Firestore
+      const updatedPhotosQuery = query(
+        collection(db, "photos"),
+        where("albums", "array-contains", albumId)
+      );
+      const updatedSnap = await getDocs(updatedPhotosQuery);
+      const actualCount = updatedSnap.size;
+
+      // Update album photoCount separately
       const albumRef = doc(db, "albums", albumId);
-      batch.update(albumRef, {
-        photoCount: photosToFix.length,
+      const finalBatch = writeBatch(db);
+      finalBatch.update(albumRef, {
+        photoCount: actualCount,
       });
+      await finalBatch.commit();
 
-      await batch.commit();
-
-      toast.success(`Re-linked ${photosToFix.length} photos!`, { id: toastId });
+      toast.success(
+        `Re-linked ${photosToFix.length} photos! Album now has ${actualCount} total.`,
+        { id: toastId }
+      );
 
       // Clear cache and refetch
       await handleClearCacheAndRefetch();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fixing album:", error);
-      toast.error("Failed to fix album", { id: toastId });
+      toast.error(error?.message || "Failed to fix album", { id: toastId });
     }
   }, [album, user, db, albumId, handleClearCacheAndRefetch]);
 
