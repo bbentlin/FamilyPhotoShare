@@ -6,6 +6,7 @@ import ClientOnly from "@/components/ClientOnly";
 import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext"; 
 import ConditionalNavbar from "@/components/ConditionalNavbar";
+import { DemoProvider } from "@/context/DemoContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -78,18 +79,20 @@ export default function RootLayout({
           <ThemeProvider>
             {" "}
             <AuthProvider>
-              <ConditionalNavbar />
-              {children}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  duration: 4000,
-                  style: {
-                    background: "var(--toast-bg)",
-                    color: "var(--toast-color)",
-                  },
-                }}
-              />
+              <DemoProvider>
+                <ConditionalNavbar />
+                {children}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    duration: 4000,
+                    style: {
+                      background: "var(--toast-bg)",
+                      color: "var(--toast-color)",
+                    },
+                  }}
+                />
+              </DemoProvider>
             </AuthProvider>
           </ThemeProvider>{" "}
         </ClientOnly>

@@ -31,10 +31,11 @@ import ThemeToggle from "@/components/ThemeToggle";
 import PhotoImage from "@/components/PhotoImage";
 import VirtualPhotoGrid from "@/components/VirtualPhotoGrid";
 import VirtualPhotoItem from "@/components/VirtualPhotoItem";
-import PhotoGridItem from "@/components/PhotoGridItem"; // ✅ Import the new component
-import Link from "next/link"; // ✅ add
-import { arrayMove } from "@dnd-kit/sortable"; // ✅ add
-import { addPhotoToAlbums } from "@/lib/albums"; // ✅ add
+import PhotoGridItem from "@/components/PhotoGridItem";
+import Link from "next/link";
+import { arrayMove } from "@dnd-kit/sortable";
+import { addPhotoToAlbums } from "@/lib/albums";
+import { useDemo } from "@/context/DemoContext";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 const AddToAlbumModal = dynamic(
@@ -72,6 +73,7 @@ const AlbumModalLoadingSpinner = () => (
 export default function PhotosPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const { canWrite, isDemoMode } = useDemo();
 
   // State declarations - keep these at the top in consistent order
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -209,6 +211,10 @@ export default function PhotosPage() {
   // Create album from selected photos
   const handleCreateAlbumFromPhotos = useCallback(
     async (selectedPhotos: Photo[]) => {
+      if (!canWrite) {
+        toast.error("Demo mode: Creating albums is disabled");
+        return;
+      }
       try {
         if (!user) {
           toast.error("You must be signed in.");
@@ -271,7 +277,7 @@ export default function PhotosPage() {
         toast.error("Failed to create album.");
       }
     },
-    [user]
+    [canWrite, user]
   );
 
   // Early returns

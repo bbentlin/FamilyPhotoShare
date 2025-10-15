@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Image from "next/image";
+import toast from "react-hot-toast";
 
 export default function LoginPage() {
-  console.log("🚨 LOGIN PAGE LOADED - FIRST LOG"); 
+  console.log("🚨 LOGIN PAGE LOADED - FIRST LOG");
 
   const { signIn, signInWithGoogle, loading, user } = useAuth();
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function LoginPage() {
     signInExists: !!signIn,
     signInWithGoogleExists: !!signInWithGoogle,
     loading,
-  }); 
+  });
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,7 +31,7 @@ export default function LoginPage() {
   }, [user, loading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    console.log("🚨 FORM SUBMITTED - THIS SHOULD SHOW"); 
+    console.log("🚨 FORM SUBMITTED - THIS SHOULD SHOW");
     e.preventDefault();
     setIsLoading(true);
     setError("");
@@ -72,6 +73,20 @@ export default function LoginPage() {
       } else {
         setError(error.message || "Failed to sign in with Google");
       }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      await signIn("demo@familyphotoshare.com", "DemoPassword123!");
+      toast.success("Logged in as demo user!");
+    } catch (error: any) {
+      setError("Failed to login to demo account");
     } finally {
       setIsLoading(false);
     }
@@ -273,6 +288,26 @@ export default function LoginPage() {
             </Link>
           </div>
         </div>
+
+        {/* Demo Login Button */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+              Or try demo mode
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={handleDemoLogin}
+          disabled={isLoading}
+          className="w-full flex justify-center py-2 px-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+        >
+          🎭 Try Demo Account (Read Only)
+        </button>
       </div>
     </div>
   );
