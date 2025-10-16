@@ -13,9 +13,11 @@ import {
 } from "firebase/auth";
 import { getDb } from "@/lib/firebase";
 import { saveNotificationPrefs } from "@/lib/user";
+import { useDemo } from "@/context/DemoContext";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
+  const { canWrite, isDemoMode } = useDemo();
   const router = useRouter();
   const [db, setDb] = useState<any>(null);
 
@@ -78,6 +80,16 @@ export default function SettingsPage() {
 
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Block demo users
+    if (!canWrite) {
+      setMessage({
+        type: "error",
+        text: "Demo mode: Profile updates are disabled",
+      });
+      return;
+    }
+
     setMessage({ type: "", text: "" });
     setIsLoading(true);
 
@@ -112,6 +124,16 @@ export default function SettingsPage() {
 
   const updateEmailAddress = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Block demo users
+    if (!canWrite) {
+      setMessage({
+        type: "error",
+        text: "Demo mode: Email updates are disabled",
+      });
+      return;
+    }
+
     setMessage({ type: "", text: "" });
 
     if (!currentPassword) {
@@ -173,6 +195,16 @@ export default function SettingsPage() {
 
   const updateUserPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // Block demo users
+    if (!canWrite) {
+      setMessage({
+        type: "error",
+        text: "Demo mode: Password updates are disabled",
+      });
+      return;
+    }
+
     setMessage({ type: "", text: "" });
 
     // Validate passwords
@@ -287,6 +319,15 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
             Account Settings
           </h1>
+
+          {/* Demo mode warning */}
+          {isDemoMode && (
+            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-600 p-4">
+              <p className="text-yellow-700 dark:text-yellow-400">
+                You're in demo mode. Settings cannot be changed.
+              </p>
+            </div>
+          )}
 
           {message.text && (
             <div

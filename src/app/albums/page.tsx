@@ -11,13 +11,14 @@ import {
   query,
   where,
   getDocs,
-  writeBatch, 
+  writeBatch,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { Album } from "@/types";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import PhotoImage from "@/components/PhotoImage";
 import { toast } from "react-hot-toast";
+import { useDemo } from "@/context/DemoContext";
 
 // CACHING IMPORTS
 import { useCachedAlbums } from "@/hooks/useCachedAlbums";
@@ -25,6 +26,7 @@ import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 
 export default function AlbumsPage() {
   const { user, loading } = useAuth();
+  const { canWrite } = useDemo(); 
   const router = useRouter();
   const [deletingAlbumId, setDeletingAlbumId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -32,7 +34,7 @@ export default function AlbumsPage() {
 
   // USE CACHED ALBUMS HOOK
   const {
-    albums: cachedAlbums, // RENAME TO cachedAlbums to avoid conflict
+    albums: cachedAlbums, 
     loading: isLoading,
     error,
     refetch,
@@ -49,11 +51,17 @@ export default function AlbumsPage() {
   // Handle album deletion
   const handleDeleteAlbum = useCallback(
     async (album: Album) => {
+      // Block demo users
+      if (!canWrite) {
+        toast.error("Demo mode: Deleting albums is disabled");
+        return;
+      }
+
       if (!user || !album) return;
 
       setDeletingAlbumId(album.id);
       try {
-        const db = getDb(); 
+        const db = getDb();
         const batch = writeBatch(db);
 
         // Find all photos that are in this album
@@ -96,7 +104,7 @@ export default function AlbumsPage() {
         setDeletingAlbumId(null);
       }
     },
-    [user, refetch]
+    [canWrite, user, refetch]
   );
 
   // Show delete confirmation modal
@@ -130,8 +138,14 @@ export default function AlbumsPage() {
               My Albums
             </h1>
             <Link
-              href="/albums/new"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              href={canWrite ? "/albums/new" : "#"} 
+              onClick={(e) => {
+                if (!canWrite) {
+                  e.preventDefault();
+                  toast.error("Demo mode: Creating albums is disabled");
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
               + Create Album
             </Link>

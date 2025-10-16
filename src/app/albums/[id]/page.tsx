@@ -1,5 +1,5 @@
 "use client";
-
+import { useDemo } from "@/context/DemoContext";
 import {
   useState,
   useEffect,
@@ -46,6 +46,7 @@ const ModalLoadingSpinner = () => (
 
 export default function AlbumPage() {
   const { user, loading: authLoading } = useAuth();
+  const { canWrite } = useDemo(); 
   const router = useRouter();
   const params = useParams();
   const albumId = params.id as string;
@@ -135,6 +136,12 @@ export default function AlbumPage() {
   // --- Event Handlers ---
   const handlePhotosAdded = useCallback(
     async (newPhotos: Photo[]) => {
+      // Block demo users
+      if (!canWrite) {
+        toast.error("Demo mode: Adding photos to albums is disabled");
+        return;
+      }
+
       if (!albumId || newPhotos.length === 0) return;
 
       const toastId = toast.loading(
@@ -178,7 +185,7 @@ export default function AlbumPage() {
         toast.error("Failed to add photos.", { id: toastId });
       }
     },
-    [albumId, db, user, photos, refetchPhotos, refetchAlbum]
+    [canWrite, albumId, db, user, photos, refetchPhotos, refetchAlbum]
   );
 
   const togglePhotoSelection = useCallback((photoId: string) => {
@@ -245,7 +252,15 @@ export default function AlbumPage() {
       console.error("Error removing photos:", error);
       toast.error("Failed to remove photos.", { id: toastId });
     }
-  }, [selectedPhotoIds, db, albumId, photos, user, refetchPhotos, refetchAlbum]);
+  }, [
+    selectedPhotoIds,
+    db,
+    albumId,
+    photos,
+    user,
+    refetchPhotos,
+    refetchAlbum,
+  ]);
 
   const handleCancelManage = useCallback(() => {
     setIsManageMode(false);
@@ -459,12 +474,22 @@ export default function AlbumPage() {
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <button
                     onClick={() => setIsSelectorOpen(true)}
-                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    disabled={!canWrite} 
+                    className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={
+                      !canWrite ? "Demo mode: This action is disabled" : ""
+                    }
                   >
                     Add from Photos
                   </button>
                   <Link
-                    href={`/upload?albumId=${albumId}`}
+                    href={canWrite ? `/upload?albumId=${albumId}` : "#"} 
+                    onClick={(e) => {
+                      if (!canWrite) {
+                        e.preventDefault();
+                        toast.error("Demo mode: Uploading is disabled");
+                      }
+                    }}
                     className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
                   >
                     Upload New Photos

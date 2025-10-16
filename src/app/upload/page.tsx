@@ -27,6 +27,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { getAuth } from "firebase/auth";
+import { useDemo } from "@/context/DemoContext";
 
 interface UploadingFile {
   id: string;
@@ -746,6 +747,28 @@ function SimpleAlbumPickerModal({
 }
 
 export default function UploadPage() {
+  const { canWrite } = useDemo();
+
+  if (!canWrite) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold mb-4">Demo Mode</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
+            Photo uploads are disabled in demo mode. Sign up for a free account
+            to upload your own photos!
+          </p>
+          <Link
+            href="/signup"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Sign Up Now
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Suspense
       fallback={

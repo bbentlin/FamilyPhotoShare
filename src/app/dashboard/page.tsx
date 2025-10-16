@@ -1,5 +1,5 @@
 "use client";
-
+import { useDemo } from "@/context/DemoContext";
 import { useState, useEffect, useMemo, lazy, Suspense, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -96,6 +96,7 @@ function SortablePhoto({
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
+  const { canWrite } = useDemo(); 
   const router = useRouter();
 
   const recentPhotosQuery = useMemo(() => {
@@ -198,6 +199,13 @@ export default function DashboardPage() {
   };
 
   const handleConfirmAlbums = async (albumIds: string[]) => {
+    // Block demo users
+    if (!canWrite) {
+      toast.error("Demo mode: Adding photos to albums is disabled");
+      closeAddToAlbumModal();
+      return;
+    }
+
     if (!selectedPhotoForAlbum) return;
 
     const toastId = toast.loading("Adding photo to album(s)...");
@@ -261,7 +269,13 @@ export default function DashboardPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link
-                href="/upload"
+                href={canWrite ? "/upload" : "#"} 
+                onClick={(e) => {
+                  if (!canWrite) {
+                    e.preventDefault();
+                    toast.error("Demo mode: Uploading is disabled");
+                  }
+                }}
                 className="group flex flex-col items-center p-4 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
               >
                 <div className="bg-blue-100 dark:bg-blue-900 group-hover:bg-blue-200 dark:group-hover:bg-blue-800 p-3 rounded-full mb-3">
@@ -284,7 +298,13 @@ export default function DashboardPage() {
                 </span>
               </Link>
               <Link
-                href="/albums/new"
+                href={canWrite ? "/albums/new" : "#"}  
+                onClick={(e) => {
+                  if (!canWrite) {
+                    e.preventDefault();
+                    toast.error("Demo mode: Creating albums is disabled");
+                  }
+                }}
                 className="group flex flex-col items-center p-4 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
               >
                 <div className="bg-green-100 dark:bg-green-900 group-hover:bg-green-200 dark:group-hover:bg-green-800 p-3 rounded-full mb-3">
@@ -307,7 +327,15 @@ export default function DashboardPage() {
                 </span>
               </Link>
               <Link
-                href="/invite"
+                href={canWrite ? "/invite" : "#"} 
+                onClick={(e) => {
+                  if (!canWrite) {
+                    e.preventDefault();
+                    toast.error(
+                      "Demo mode: Inviting family members is disabled"
+                    );
+                  }
+                }}
                 className="group flex flex-col items-center p-4 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               >
                 <div className="bg-purple-100 dark:bg-purple-900 group-hover:bg-purple-200 dark:group-hover:bg-purple-800 p-3 rounded-full mb-3">
@@ -327,29 +355,6 @@ export default function DashboardPage() {
                 </div>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                   Invite Family
-                </span>
-              </Link>
-              <Link
-                href="/photos"
-                className="group flex flex-col items-center p-4 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
-              >
-                <div className="bg-amber-100 dark:bg-amber-900 group-hover:bg-amber-200 dark:group-hover:bg-amber-800 p-3 rounded-full mb-3">
-                  <svg
-                    className="h-6 w-6 text-amber-600 dark:text-amber-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-amber-600 dark:group-hover:text-amber-400">
-                  View All Photos
                 </span>
               </Link>
             </div>

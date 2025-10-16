@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useDemo } from "@/context/DemoContext";
 import {
   collection,
   addDoc,
@@ -14,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { notifyCommentOwner } from "@/lib/notifications";
+import { toast } from "react-toastify";
 
 interface Comment {
   id: string;
@@ -36,6 +38,7 @@ export default function Comments({
   photoOwnerName,
 }: CommentsProps) {
   const { user } = useAuth();
+  const { canWrite } = useDemo(); 
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -78,6 +81,13 @@ export default function Comments({
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Block demo users
+    if (!canWrite) {
+      toast.error("Demo mode: Adding comments is disabled");
+      return;
+    }
+
     if (!user || !newComment.trim() || !db) return;
 
     setIsSubmitting(true);
@@ -97,8 +107,7 @@ export default function Comments({
           ownerEmail: undefined, // optional
           commenterName: user.displayName || user.email || "Someone",
           photoTitle: "Photo",
-          photoUrl:
-            typeof window !== "undefined" ? window.location.href : "",
+          photoUrl: typeof window !== "undefined" ? window.location.href : "",
         });
       }
 
@@ -141,13 +150,15 @@ export default function Comments({
               type="text"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              placeholder="Add a comment..."
+              placeholder={
+                canWrite ? "Add a comment..." : "Comments disabled in demo mode"
+              }
               className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !canWrite} 
             />
             <button
               type="submit"
-              disabled={isSubmitting || !newComment.trim()}
+              disabled={isSubmitting || !newComment.trim() || !canWrite} 
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Posting..." : "Post"}

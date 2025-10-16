@@ -16,6 +16,8 @@ import {
 import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
+import { useDemo } from "@/context/DemoContext";
+import { toast } from "react-toastify";
 
 interface Invitation {
   id: string;
@@ -29,13 +31,17 @@ interface Invitation {
 
 export default function InvitePanel() {
   const { user, loading } = useAuth();
+  const { canWrite } = useDemo();
   const router = useRouter();
   const [email, setEmail] = useState<string>("");
   const [isInviting, setIsInviting] = useState(false);
   const [pendingInvites, setPendingInvites] = useState<Invitation[]>([]);
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState<{text: string; type: "success" | "error"} | null>(null);
+  const [message, setMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -82,6 +88,13 @@ export default function InvitePanel() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Block demo users
+    if (!canWrite) {
+      toast.error("Demo mode: Inviting family members is disabled");
+      return;
+    }
+
     if (!user || !email.trim()) return;
 
     setIsInviting(true);
@@ -95,12 +108,18 @@ export default function InvitePanel() {
       );
 
       if (existingInvite) {
-        setMessage({text: "This email already has a pending invitation.", type: "error"});
+        setMessage({
+          text: "This email already has a pending invitation.",
+          type: "error",
+        });
         return;
       }
 
       if (existingMember) {
-        setMessage({text: "This email is already a family member.", type: "error"});
+        setMessage({
+          text: "This email is already a family member.",
+          type: "error",
+        });
         return;
       }
 
@@ -117,25 +136,34 @@ export default function InvitePanel() {
         expiresAt: expiryDate,
       });
 
-      setMessage({text: `Invitation sent to ${email}!`, type: "success"});
+      setMessage({ text: `Invitation sent to ${email}!`, type: "success" });
       setEmail("");
       fetchData(); // Refresh the list
     } catch (error: unknown) {
       console.error("Error sending invitation:", error);
-      setMessage({text: "Failed to send invitation. Please try again.", type: "error"});
+      setMessage({
+        text: "Failed to send invitation. Please try again.",
+        type: "error",
+      });
     } finally {
       setIsInviting(false);
     }
   };
 
   const handleCancelInvite = async (inviteId: string) => {
+    // Block demo users
+    if (!canWrite) {
+      toast.error("Demo mode: Canceling invitations is disabled");
+      return;
+    }
+
     try {
       await deleteDoc(doc(db, "invitations", inviteId));
-      setMessage({text: "Invitation cancelled", type: "success"});
+      setMessage({ text: "Invitation cancelled", type: "success" });
       fetchData(); // Refresh the list
     } catch (error: unknown) {
       console.error("Error cancelling invitation:", error);
-      setMessage({text: "Failed to cancel invitation.", type: "error"});
+      setMessage({ text: "Failed to cancel invitation.", type: "error" });
     }
   };
 
@@ -191,12 +219,13 @@ export default function InvitePanel() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter family member's email"
                 required
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                disabled={!canWrite}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 disabled:opacity-50"
               />
             </div>
             <button
               type="submit"
-              disabled={isInviting || !email.trim()}
+              disabled={isInviting || !email.trim() || !canWrite}
               className="px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {isInviting ? "Sending..." : "Send Invite"}
@@ -279,7 +308,7 @@ export default function InvitePanel() {
                   >
                     <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-3">
                       {member.photoUrl ? (
-                        <Image 
+                        <Image
                           src={member.photoUrl}
                           alt={member.name || member.email || "Member"}
                           width={40}

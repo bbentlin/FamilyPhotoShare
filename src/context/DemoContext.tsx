@@ -28,8 +28,8 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     () => ({
       isDemoMode,
       canWrite: !isDemoMode,
-      showDemoBanner: !isDemoMode,
-    }), 
+      showDemoBanner: isDemoMode, 
+    }),
     [isDemoMode]
   );
 

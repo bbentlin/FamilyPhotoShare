@@ -82,7 +82,7 @@ export default function PhotosPage() {
   const [showAddToAlbumModal, setShowAddToAlbumModal] = useState(false);
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
-  const [viewMode, setViewMode] = useState<"virtual" | "grid">("virtual"); // <-- Default is "virtual"
+  const [viewMode, setViewMode] = useState<"virtual" | "grid">("grid"); // <-- Default is "grid"
   const [showCreateFromPhotos, setShowCreateFromPhotos] = useState(false);
 
   // optional: persist view mode across visits
@@ -186,6 +186,13 @@ export default function PhotosPage() {
 
   const handleConfirmAlbums = useCallback(
     async (albumIds: string[]) => {
+      // Block demo users
+      if (!canWrite) {
+        toast.error("Demo mode: Adding photos to albums is disabled");
+        closeAddToAlbumModal();
+        return;
+      }
+
       if (!selectedPhotoForAlbum || !user) return;
       const toastId = toast.loading("Adding photo to album(s)...");
       try {
@@ -205,7 +212,7 @@ export default function PhotosPage() {
         closeAddToAlbumModal();
       }
     },
-    [selectedPhotoForAlbum, user, closeAddToAlbumModal]
+    [canWrite, selectedPhotoForAlbum, user, closeAddToAlbumModal]
   );
 
   // Create album from selected photos
@@ -398,7 +405,6 @@ export default function PhotosPage() {
                   onLoadMore={loadMore}
                   onPhotoClick={openPhotoModal}
                   onAddToAlbum={openAddToAlbumModal}
-                  // ✅ Use the new component here
                   renderPhoto={({ photo, onClick, onAddToAlbum }) => (
                     <PhotoGridItem
                       photo={photo}
@@ -417,7 +423,6 @@ export default function PhotosPage() {
                 >
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {photos.map((photo, index) => (
-                      // ✅ And also use the new component here
                       <PhotoGridItem
                         key={photo.id}
                         photo={photo}
