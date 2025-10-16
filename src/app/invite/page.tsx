@@ -17,7 +17,7 @@ import { db } from "@/lib/firebase";
 import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
 import { useDemo } from "@/context/DemoContext";
-import { toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 
 interface Invitation {
   id: string;

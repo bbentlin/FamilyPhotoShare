@@ -15,7 +15,7 @@ import {
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase";
 import { notifyCommentOwner } from "@/lib/notifications";
-import { toast } from "react-toastify";
+import { toast } from "react-hot-toast";
 
 interface Comment {
   id: string;
