@@ -42,6 +42,7 @@ import {
   useSensor,
   useSensors,
   TouchSensor,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -88,20 +89,27 @@ function SortablePhoto({
     isDragging,
   } = useSortable({ id: photo.id });
 
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    // ✅ ADD: Prevent touch scrolling during drag
+    touchAction: "none",
+  };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="relative cursor-grab active:cursor-grabbing"
+      className={`relative cursor-grab active:cursor-grabbing ${
+        isDragging ? "opacity-50 z-50" : "opacity-100"
+      }`}
       {...attributes}
       {...listeners}
     >
       <PhotoGridItem
         photo={photo}
         priority={index < 6}
-        onPhotoClick={() => openPhotoModal(photo, index)}
+        onPhotoClick={() => !isDragging && openPhotoModal(photo, index)}
         onAddToAlbumClick={() => openAddToAlbumModal(photo)}
         isDragging={isDragging}
       />
@@ -141,6 +149,8 @@ export default function DashboardPage() {
   } = useCachedAlbums(false);
 
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   useEffect(() => {
     setPhotos(recentPhotosData || []);
   }, [recentPhotosData]);
@@ -153,22 +163,19 @@ export default function DashboardPage() {
 
   const suppressPhotoOpenRef = useRef<number>(0);
 
-  // Mobile drag configuration
+  // ✅ IMPROVED: Better sensor configuration with less delay
   const sensors = useSensors(
-    // Desktop pointer sensor - requires small movement to start
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
     }),
-    // Mobile touch sensor
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250, // Hold for 250ms before drag starts
-        tolerance: 5, // Allow 5px of movement during the delay
+        delay: 150, // Reduced from 250ms
+        tolerance: 8, // Increased tolerance
       },
     }),
-    // Keyboard sensor for accessibility
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -182,8 +189,15 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
+  // ✅ ADD: Track active drag
+  const handleDragStart = (event: any) => {
+    setActiveId(event.active.id);
+  };
+
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
+    setActiveId(null);
+
     if (!over || active.id === over.id) return;
 
     setPhotos((prev) => {
@@ -192,6 +206,11 @@ export default function DashboardPage() {
       if (oldIndex === -1 || newIndex === -1) return prev;
       return arrayMove(prev, oldIndex, newIndex);
     });
+  };
+
+  // ✅ ADD: Cancel drag
+  const handleDragCancel = () => {
+    setActiveId(null);
   };
 
   const openPhotoModal = (photo: Photo, index: number) => {
@@ -263,6 +282,9 @@ export default function DashboardPage() {
       setSelectedPhotoForAlbum(null);
     }
   };
+
+  // ✅ ADD: Get active photo for drag overlay
+  const activePhoto = activeId ? photos.find((p) => p.id === activeId) : null;
 
   if (isLoading) {
     return (
@@ -411,13 +433,18 @@ export default function DashboardPage() {
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
+                    onDragCancel={handleDragCancel}
                   >
                     <SortableContext
                       items={photos.map((p) => p.id)}
                       strategy={rectSortingStrategy}
                     >
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      <div
+                        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
+                        style={{ touchAction: "none" }} // ✅ ADD: Prevent scroll on grid
+                      >
                         {photos.map((photo, index) => (
                           <SortablePhoto
                             key={photo.id}
@@ -429,6 +456,20 @@ export default function DashboardPage() {
                         ))}
                       </div>
                     </SortableContext>
+                    {/* ✅ ADD: Drag overlay for better visual feedback */}
+                    <DragOverlay>
+                      {activePhoto ? (
+                        <div className="opacity-80 shadow-2xl">
+                          <PhotoGridItem
+                            photo={activePhoto}
+                            priority={false}
+                            onPhotoClick={() => {}}
+                            onAddToAlbumClick={() => {}}
+                            isDragging={true}
+                          />
+                        </div>
+                      ) : null}
+                    </DragOverlay>
                   </DndContext>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
@@ -482,7 +523,7 @@ export default function DashboardPage() {
                 </div>
                 {albums.length > 0 ? (
                   <div className="space-y-3">
-                    {albums.slice(0, 3).map((album: Album) => (
+                    {albums.slice(0, 3).map((album: any) => (
                       <Link
                         key={album.id}
                         href={`/albums/${album.id}`}
