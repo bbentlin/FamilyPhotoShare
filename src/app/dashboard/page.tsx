@@ -32,6 +32,7 @@ import dynamic from "next/dynamic";
 import { addPhotoToAlbums } from "@/lib/albums";
 import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
 import PhotoGridItem from "@/components/PhotoGridItem";
+import PhotoImage from "@/components/PhotoImage";
 
 import {
   DndContext,
