@@ -1,12 +1,38 @@
 "use client";
-import { useDemo } from "@/context/DemoContext";
-import { useState, useEffect, useMemo, lazy, Suspense, useRef } from "react";
-import Link from "next/link";
+
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  lazy,
+  Suspense,
+  useRef,
+} from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
-import { collection, query, orderBy, limit } from "firebase/firestore";
+import { useDemo } from "@/context/DemoContext";
+import {
+  collection,
+  query,
+  orderBy,
+  limit,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { Photo } from "@/types";
+import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { toast } from "react-hot-toast";
+import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
+import { useCachedAlbums } from "@/hooks/useCachedAlbums";
+import { CACHE_CONFIGS } from "@/lib/firebaseCache";
+import dynamic from "next/dynamic";
+import { addPhotoToAlbums } from "@/lib/albums";
+import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
+import PhotoGridItem from "@/components/PhotoGridItem";
+
 import {
   DndContext,
   closestCenter,
@@ -14,31 +40,22 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  TouchSensor,
 } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
-  rectSortingStrategy,
   useSortable,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Photo, Album } from "@/types";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import PhotoGridItem from "@/components/PhotoGridItem";
-import PhotoImage from "@/components/PhotoImage";
-import { useCachedAlbums } from "@/hooks/useCachedAlbums";
-import { useCachedFirebaseQuery } from "@/hooks/useCachedFirebaseQuery";
-import { CACHE_CONFIGS } from "@/lib/firebaseCache";
-import { addPhotoToAlbums } from "@/lib/albums";
-import { CacheInvalidationManager } from "@/lib/cacheInvalidation";
-import { toast } from "react-hot-toast";
 
 const PhotoModal = lazy(() => import("@/components/PhotoModal"));
 
 const AddToAlbumModal = dynamic(() => import("@/components/AddToAlbumModal"), {
-  ssr: false, // This modal should only render on the client
-  loading: () => <ModalLoadingSpinner />, // Provide a loading component
+  ssr: false,
+  loading: () => <ModalLoadingSpinner />,
 });
 
 const ModalLoadingSpinner = () => (
@@ -85,9 +102,6 @@ function SortablePhoto({
         priority={index < 6}
         onPhotoClick={() => openPhotoModal(photo, index)}
         onAddToAlbumClick={() => openAddToAlbumModal(photo)}
-        // dnd props not needed on child when wrapper is the draggable
-        // dndAttributes={attributes}
-        // dndListeners={listeners}
         isDragging={isDragging}
       />
     </div>
@@ -96,7 +110,7 @@ function SortablePhoto({
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
-  const { canWrite } = useDemo(); 
+  const { canWrite } = useDemo();
   const router = useRouter();
 
   const recentPhotosQuery = useMemo(() => {
@@ -136,14 +150,27 @@ export default function DashboardPage() {
   const [selectedPhotoForAlbum, setSelectedPhotoForAlbum] =
     useState<Photo | null>(null);
 
-  // Suppress photo modal while album modal is opening/open
   const suppressPhotoOpenRef = useRef<number>(0);
 
+  // Mobile drag configuration
   const sensors = useSensors(
+    // Desktop pointer sensor - requires small movement to start
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 }, // small movement required to start drag
+      activationConstraint: {
+        distance: 8,
+      },
     }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    // Mobile touch sensor
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250, // Hold for 250ms before drag starts
+        tolerance: 5, // Allow 5px of movement during the delay
+      },
+    }),
+    // Keyboard sensor for accessibility
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
   );
 
   const isLoading = loading || photosLoading || albumsLoading;
@@ -172,7 +199,9 @@ export default function DashboardPage() {
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
   };
+
   const closePhotoModal = () => setSelectedPhoto(null);
+
   const goToPreviousPhoto = () => {
     if (selectedPhotoIndex > 0) {
       const newIndex = selectedPhotoIndex - 1;
@@ -180,6 +209,7 @@ export default function DashboardPage() {
       setSelectedPhoto(photos[newIndex]);
     }
   };
+
   const goToNextPhoto = () => {
     if (selectedPhotoIndex < photos.length - 1) {
       const newIndex = selectedPhotoIndex + 1;
@@ -187,11 +217,13 @@ export default function DashboardPage() {
       setSelectedPhoto(photos[newIndex]);
     }
   };
+
   const openAddToAlbumModal = (photo: Photo) => {
     suppressPhotoOpenRef.current = Date.now() + 800;
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
   };
+
   const closeAddToAlbumModal = () => {
     setShowAddToAlbumModal(false);
     setSelectedPhotoForAlbum(null);
@@ -199,7 +231,6 @@ export default function DashboardPage() {
   };
 
   const handleConfirmAlbums = async (albumIds: string[]) => {
-    // Block demo users
     if (!canWrite) {
       toast.error("Demo mode: Adding photos to albums is disabled");
       closeAddToAlbumModal();
@@ -269,7 +300,7 @@ export default function DashboardPage() {
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Link
-                href={canWrite ? "/upload" : "#"} 
+                href={canWrite ? "/upload" : "#"}
                 onClick={(e) => {
                   if (!canWrite) {
                     e.preventDefault();
@@ -298,7 +329,7 @@ export default function DashboardPage() {
                 </span>
               </Link>
               <Link
-                href={canWrite ? "/albums/new" : "#"}  
+                href={canWrite ? "/albums/new" : "#"}
                 onClick={(e) => {
                   if (!canWrite) {
                     e.preventDefault();
@@ -327,7 +358,7 @@ export default function DashboardPage() {
                 </span>
               </Link>
               <Link
-                href={canWrite ? "/invite" : "#"} 
+                href={canWrite ? "/invite" : "#"}
                 onClick={(e) => {
                   if (!canWrite) {
                     e.preventDefault();
@@ -363,27 +394,18 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
             <div className="lg:col-span-2 h-full">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 h-full flex flex-col">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Recent Photos{" "}
-                    {photosStale && (
-                      <span className="text-xs text-yellow-500 ml-2">
-                        (updating...)
-                      </span>
-                    )}
+                    Recent Photos
                   </h2>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Drag to rearrange
-                    </span>
-                    <Link
-                      href="/photos"
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
-                    >
-                      View All →
-                    </Link>
-                  </div>
+                  <Link
+                    href="/photos"
+                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    View All →
+                  </Link>
                 </div>
+
                 {photos.length > 0 ? (
                   <DndContext
                     sensors={sensors}
@@ -394,7 +416,7 @@ export default function DashboardPage() {
                       items={photos.map((p) => p.id)}
                       strategy={rectSortingStrategy}
                     >
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 flex-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         {photos.map((photo, index) => (
                           <SortablePhoto
                             key={photo.id}
@@ -408,9 +430,9 @@ export default function DashboardPage() {
                     </SortableContext>
                   </DndContext>
                 ) : (
-                  <div className="text-center py-12">
+                  <div className="flex-1 flex flex-col items-center justify-center py-12 text-center">
                     <svg
-                      className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4"
+                      className="h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -422,19 +444,23 @@ export default function DashboardPage() {
                         d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                       />
                     </svg>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       No photos yet
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">
+                      Upload your first photos to get started!
                     </p>
                     <Link
                       href="/upload"
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                     >
-                      Upload Your First Photo
+                      Upload Photos
                     </Link>
                   </div>
                 )}
               </div>
             </div>
+
             <div className="space-y-8">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
