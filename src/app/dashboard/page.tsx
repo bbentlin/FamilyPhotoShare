@@ -42,6 +42,7 @@ import {
   useSensor,
   useSensors,
   TouchSensor,
+  MouseSensor, 
   DragOverlay,
 } from "@dnd-kit/core";
 import {
@@ -92,7 +93,6 @@ function SortablePhoto({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // ✅ ADD: Prevent touch scrolling during drag
     touchAction: "none",
   };
 
@@ -163,19 +163,28 @@ export default function DashboardPage() {
 
   const suppressPhotoOpenRef = useRef<number>(0);
 
-  // ✅ IMPROVED: Better sensor configuration with less delay
+  // All sensor types for better cross-device support
   const sensors = useSensors(
+    // Mouse sensor for iPad with mouse/trackpad
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 8, // Small movement to start drag
+      },
+    }),
+    // Pointer sensor for desktop and iPad with Apple Pencil
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
       },
     }),
+    // Touch sensor for mobile and iPad touch
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 150, // Reduced from 250ms
-        tolerance: 8, // Increased tolerance
+        delay: 200, // Hold for 200ms
+        tolerance: 10, // Allow 10px movement during delay
       },
     }),
+    // Keyboard sensor for accessibility
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -189,7 +198,6 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  // ✅ ADD: Track active drag
   const handleDragStart = (event: any) => {
     setActiveId(event.active.id);
   };
@@ -208,7 +216,6 @@ export default function DashboardPage() {
     });
   };
 
-  // ✅ ADD: Cancel drag
   const handleDragCancel = () => {
     setActiveId(null);
   };
@@ -283,7 +290,6 @@ export default function DashboardPage() {
     }
   };
 
-  // ✅ ADD: Get active photo for drag overlay
   const activePhoto = activeId ? photos.find((p) => p.id === activeId) : null;
 
   if (isLoading) {
@@ -443,7 +449,7 @@ export default function DashboardPage() {
                     >
                       <div
                         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-                        style={{ touchAction: "none" }} // ✅ ADD: Prevent scroll on grid
+                        style={{ touchAction: "none" }}
                       >
                         {photos.map((photo, index) => (
                           <SortablePhoto
@@ -456,7 +462,6 @@ export default function DashboardPage() {
                         ))}
                       </div>
                     </SortableContext>
-                    {/* ✅ ADD: Drag overlay for better visual feedback */}
                     <DragOverlay>
                       {activePhoto ? (
                         <div className="opacity-80 shadow-2xl">
