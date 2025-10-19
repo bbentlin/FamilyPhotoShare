@@ -42,7 +42,7 @@ import {
   useSensor,
   useSensors,
   TouchSensor,
-  MouseSensor, 
+  MouseSensor,
   DragOverlay,
 } from "@dnd-kit/core";
 import {
@@ -75,11 +75,13 @@ function SortablePhoto({
   index,
   openPhotoModal,
   openAddToAlbumModal,
+  isDragging: isGlobalDragging,
 }: {
   photo: Photo;
   index: number;
   openPhotoModal: (photo: Photo, index: number) => void;
   openAddToAlbumModal: (photo: Photo) => void;
+  isDragging: boolean;
 }) {
   const {
     attributes,
@@ -100,8 +102,8 @@ function SortablePhoto({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative cursor-grab active:cursor-grabbing ${
-        isDragging ? "opacity-50 z-50" : "opacity-100"
+      className={`relative ${isDragging ? "opacity-30 z-50" : "opacity-100"} ${
+        isGlobalDragging ? "pointer-events-none" : ""
       }`}
       {...attributes}
       {...listeners}
@@ -109,8 +111,10 @@ function SortablePhoto({
       <PhotoGridItem
         photo={photo}
         priority={index < 6}
-        onPhotoClick={() => !isDragging && openPhotoModal(photo, index)}
-        onAddToAlbumClick={() => openAddToAlbumModal(photo)}
+        onPhotoClick={() => !isGlobalDragging && openPhotoModal(photo, index)}
+        onAddToAlbumClick={() =>
+          !isGlobalDragging && openAddToAlbumModal(photo)
+        }
         isDragging={isDragging}
       />
     </div>
@@ -163,28 +167,23 @@ export default function DashboardPage() {
 
   const suppressPhotoOpenRef = useRef<number>(0);
 
-  // All sensor types for better cross-device support
   const sensors = useSensors(
-    // Mouse sensor for iPad with mouse/trackpad
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 8, // Small movement to start drag
+        distance: 10,
       },
     }),
-    // Pointer sensor for desktop and iPad with Apple Pencil
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
-    // Touch sensor for mobile and iPad touch
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // Hold for 200ms
-        tolerance: 10, // Allow 10px movement during delay
+        delay: 250,
+        tolerance: 5,
       },
     }),
-    // Keyboard sensor for accessibility
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -221,7 +220,11 @@ export default function DashboardPage() {
   };
 
   const openPhotoModal = (photo: Photo, index: number) => {
-    if (showAddToAlbumModal || Date.now() < suppressPhotoOpenRef.current)
+    if (
+      showAddToAlbumModal ||
+      Date.now() < suppressPhotoOpenRef.current ||
+      activeId
+    )
       return;
     setSelectedPhoto(photo);
     setSelectedPhotoIndex(index);
@@ -246,6 +249,7 @@ export default function DashboardPage() {
   };
 
   const openAddToAlbumModal = (photo: Photo) => {
+    if (activeId) return;
     suppressPhotoOpenRef.current = Date.now() + 800;
     setSelectedPhotoForAlbum(photo);
     setShowAddToAlbumModal(true);
@@ -449,7 +453,7 @@ export default function DashboardPage() {
                     >
                       <div
                         className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
-                        style={{ touchAction: "none" }}
+                        style={{ touchAction: "pan-y pinch-zoom" }}
                       >
                         {photos.map((photo, index) => (
                           <SortablePhoto
@@ -458,13 +462,14 @@ export default function DashboardPage() {
                             index={index}
                             openPhotoModal={openPhotoModal}
                             openAddToAlbumModal={openAddToAlbumModal}
+                            isDragging={!!activeId}
                           />
                         ))}
                       </div>
                     </SortableContext>
-                    <DragOverlay>
+                    <DragOverlay dropAnimation={null}>
                       {activePhoto ? (
-                        <div className="opacity-80 shadow-2xl">
+                        <div className="opacity-90 shadow-2xl cursor-grabbing">
                           <PhotoGridItem
                             photo={activePhoto}
                             priority={false}
